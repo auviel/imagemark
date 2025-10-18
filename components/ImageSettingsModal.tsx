@@ -42,6 +42,11 @@ const ImageSettingsModal: React.FC<ImageSettingsModalProps> = ({
         newSettings.positionPreset = "custom"
       }
 
+      // Set opacity to 100% when switching to image watermark type
+      if (key === "type" && value === "image") {
+        newSettings.opacity = 100
+      }
+
       return newSettings
     })
   }, [])
@@ -52,6 +57,7 @@ const ImageSettingsModal: React.FC<ImageSettingsModalProps> = ({
       positionX: preset.x,
       positionY: preset.y,
       positionPreset: preset.id,
+      rotation: 0,
     }))
   }, [])
 

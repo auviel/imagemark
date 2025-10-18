@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-01-18
+
+### Added
+- Footer component with ImageMark logo, copyright, and version information
+- Enhanced position preset system with improved X coordinates
+- Automatic opacity adjustment for image watermarks (100% default)
+- Automatic rotation reset (0°) when selecting position presets
+
+### Changed
+- Updated position preset X coordinates for better visual balance:
+  - Top Left, Center Left, Bottom Left: 10% → 15%
+  - Top Right, Center Right, Bottom Right: 90% → 85%
+- Improved default watermark settings for better user experience
+- Enhanced footer branding with "ImageMark by Auviel"
+
+### Fixed
+- Security vulnerabilities in dependencies
+- Dependency conflicts and version mismatches
+- Updated all packages to latest stable versions
+
+### Technical Improvements
+- Cleaned up unnecessary dependencies (Remix, Svelte, Vue)
+- Updated React Day Picker to v9 for React 19 compatibility
+- Updated Vaul to v1.1.2 for React 19 compatibility
+- Updated date-fns to v3.6.0 for compatibility
+- Resolved all npm audit security issues
+
 ## [1.0.0] - 2024-01-XX
 
 ### Added

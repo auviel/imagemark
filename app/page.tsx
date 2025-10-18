@@ -28,6 +28,7 @@ import { useDebounce } from "@/hooks/useDebounce"
 
 // Components
 import { ImageMarkLogo } from "@/components/ImageMarkLogo"
+import { Footer } from "@/components/Footer"
 import { ColorPicker } from "@/components/ColorPicker"
 import { PositionGrid } from "@/components/PositionGrid"
 import { ImageCanvas } from "@/components/ImageCanvas"
@@ -376,6 +377,11 @@ export default function WatermarkingTool() {
         newSettings.positionPreset = "custom"
       }
 
+      // Set opacity to 100% when switching to image watermark type
+      if (key === "type" && value === "image") {
+        newSettings.opacity = 100
+      }
+
       return newSettings
     })
   }, [])
@@ -386,6 +392,7 @@ export default function WatermarkingTool() {
       positionX: preset.x,
       positionY: preset.y,
       positionPreset: preset.id,
+      rotation: 0,
     }))
   }, [])
 
@@ -1252,6 +1259,8 @@ export default function WatermarkingTool() {
           </div>
         </div>
       </main>
+
+      <Footer />
 
       <canvas ref={analysisCanvasRef} style={{ display: "none" }} />
     </div>

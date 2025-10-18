@@ -9,6 +9,7 @@ import { VideoUploader } from "@/components/video/VideoUploader"
 import { VideoProcessingCard } from "@/components/video/VideoProcessingCard"
 import { VideoPreviewModal } from "@/components/video/VideoPreviewModal"
 import { VideoWatermarkSettings } from "@/components/video/VideoWatermarkSettings"
+import { Footer } from "@/components/Footer"
 import { DEFAULT_SETTINGS } from "@/constants/watermark"
 import { createVideoItem, processVideo } from "@/utils/video"
 import type { VideoItem, VideoProcessingOptions } from "@/types/video"
@@ -254,6 +255,8 @@ export default function VideosPage() {
           />
         )}
       </div>
+      
+      <Footer />
     </div>
   )
 }

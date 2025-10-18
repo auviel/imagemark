@@ -69,7 +69,7 @@ export const POSITION_PRESETS: PositionPreset[] = [
   {
     id: "top-left",
     name: "Top Left",
-    x: 10,
+    x: 15,
     y: 10,
     icon: (
       <div className="w-8 h-8 border-2 border-gray-300 rounded-md relative bg-white">
@@ -91,7 +91,7 @@ export const POSITION_PRESETS: PositionPreset[] = [
   {
     id: "top-right",
     name: "Top Right",
-    x: 90,
+    x: 85,
     y: 10,
     icon: (
       <div className="w-8 h-8 border-2 border-gray-300 rounded-md relative bg-white">
@@ -102,7 +102,7 @@ export const POSITION_PRESETS: PositionPreset[] = [
   {
     id: "center-left",
     name: "Center Left",
-    x: 10,
+    x: 15,
     y: 50,
     icon: (
       <div className="w-8 h-8 border-2 border-gray-300 rounded-md relative bg-white">
@@ -124,7 +124,7 @@ export const POSITION_PRESETS: PositionPreset[] = [
   {
     id: "center-right",
     name: "Center Right",
-    x: 90,
+    x: 85,
     y: 50,
     icon: (
       <div className="w-8 h-8 border-2 border-gray-300 rounded-md relative bg-white">
@@ -135,7 +135,7 @@ export const POSITION_PRESETS: PositionPreset[] = [
   {
     id: "bottom-left",
     name: "Bottom Left",
-    x: 10,
+    x: 15,
     y: 90,
     icon: (
       <div className="w-8 h-8 border-2 border-gray-300 rounded-md relative bg-white">
@@ -157,7 +157,7 @@ export const POSITION_PRESETS: PositionPreset[] = [
   {
     id: "bottom-right",
     name: "Bottom Right",
-    x: 90,
+    x: 85,
     y: 90,
     icon: (
       <div className="w-8 h-8 border-2 border-gray-300 rounded-md relative bg-white">

@@ -46,6 +46,11 @@ export const VideoWatermarkSettings: React.FC<VideoWatermarkSettingsProps> = ({
         newSettings.positionPreset = "custom"
       }
 
+      // Set opacity to 100% when switching to image watermark type
+      if (key === "type" && value === "image") {
+        newSettings.opacity = 100
+      }
+
       return newSettings
     })
   }
@@ -60,6 +65,7 @@ export const VideoWatermarkSettings: React.FC<VideoWatermarkSettingsProps> = ({
       positionX: preset.x,
       positionY: preset.y,
       positionPreset: preset.id,
+      rotation: 0,
     }))
   }
 
