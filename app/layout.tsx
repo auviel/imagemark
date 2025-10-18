@@ -8,6 +8,7 @@ import { Suspense } from "react"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://imagemark.app'),
   title: "ImageMark - Free Online Watermark Tool | Add Watermarks to Images",
   description:
     "Add watermarks to your images for free. Batch processing, text & logo watermarks, instant download. Protect your photos and images with professional watermarks.",
@@ -114,6 +115,39 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebApplication",
+              "name": "ImageMark",
+              "description": "Free online watermark tool for images and videos. Add professional watermarks to protect your content.",
+              "url": "https://imagemark.app",
+              "applicationCategory": "MultimediaApplication",
+              "operatingSystem": "Web Browser",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              },
+              "creator": {
+                "@type": "Organization",
+                "name": "Auviel",
+                "url": "https://www.auviel.com"
+              },
+              "featureList": [
+                "Text watermarking",
+                "Image watermarking", 
+                "Video watermarking",
+                "Batch processing",
+                "Real-time preview",
+                "Multiple file formats",
+                "Privacy-first processing"
+              ]
+            })
+          }}
+        />
         <Suspense>{children}</Suspense>
         <Analytics />
       </body>

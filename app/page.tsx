@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState, useRef, useCallback, useMemo, Suspense, lazy } from "react"
 import { Download, Settings, ChevronDown, RotateCcw, X, Plus, Upload, Shield, Zap, Edit3 } from "lucide-react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -29,6 +30,8 @@ import { useDebounce } from "@/hooks/useDebounce"
 // Components
 import { ImageMarkLogo } from "@/components/ImageMarkLogo"
 import { Footer } from "@/components/Footer"
+import { FAQ } from "@/components/FAQ"
+import { FAQ_DATA } from "@/data/faq"
 import { ColorPicker } from "@/components/ColorPicker"
 import { PositionGrid } from "@/components/PositionGrid"
 import { ImageCanvas } from "@/components/ImageCanvas"
@@ -229,7 +232,7 @@ export default function WatermarkingTool() {
         const videoFiles = fileArray.filter((file) => ACCEPTED_VIDEO_TYPES.includes(file.type as any))
 
         if (imageFiles.length > 0) {
-          handleFileUpload(imageFiles)
+          handleFileUpload(imageFiles as any)
         }
 
         if (videoFiles.length > 0) {
@@ -254,11 +257,11 @@ export default function WatermarkingTool() {
 
       if (e.dataTransfer.files) {
         const files = e.dataTransfer.files
-        const imageFiles = Array.from(files).filter((file) => ACCEPTED_FILE_TYPES.includes(file.type))
-        const videoFiles = Array.from(files).filter((file) => ACCEPTED_VIDEO_TYPES.includes(file.type))
+        const imageFiles = Array.from(files).filter((file) => ACCEPTED_FILE_TYPES.includes(file.type as any))
+        const videoFiles = Array.from(files).filter((file) => ACCEPTED_VIDEO_TYPES.includes(file.type as any))
 
         if (imageFiles.length > 0) {
-          handleFileUpload(imageFiles)
+          handleFileUpload(imageFiles as any)
         }
 
         if (videoFiles.length > 0) {
@@ -1258,6 +1261,32 @@ export default function WatermarkingTool() {
             <p className="text-gray-600 text-sm">No limits, no subscriptions</p>
           </div>
         </div>
+
+        {/* FAQ Section */}
+        <section className="py-16">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                Frequently Asked Questions
+              </h2>
+              <p className="text-lg text-gray-600">
+                Quick answers to common questions about ImageMark
+              </p>
+            </div>
+            
+            <FAQ items={FAQ_DATA} maxItems={3} />
+            
+            <div className="text-center mt-8">
+              <Link 
+                href="/faq" 
+                className="inline-flex items-center text-teal-600 hover:text-teal-700 font-medium"
+              >
+                View all FAQs
+                <ChevronDown className="w-4 h-4 ml-1" />
+              </Link>
+            </div>
+          </div>
+        </section>
       </main>
 
       <Footer />
