@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getJobProgress } from '@/lib/jobs/progress'
+import { validatePathParams, videoProgressSchema } from '@/lib/validation/schema'
+import { handleError, ErrorCodes } from '@/lib/error-handler'
 
 export async function GET(
   request: NextRequest,
@@ -8,15 +10,22 @@ export async function GET(
   try {
     const { jobId } = await params
 
-    const job = getJobProgress(jobId)
+    // Validate path parameters
+    const validation = validatePathParams(videoProgressSchema, { jobId })
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 })
+    }
+
+    const job = getJobProgress(validation.data.jobId)
 
     if (!job) {
-      return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+      const { error } = handleError(new Error('Job not found'), ErrorCodes.VALIDATION_ERROR)
+      return NextResponse.json({ error: error.getUserMessage() }, { status: 404 })
     }
 
     return NextResponse.json(job)
   } catch (error) {
-    console.error('Progress check error:', error)
-    return NextResponse.json({ error: 'Failed to check progress' }, { status: 500 })
+    const { error: appError } = handleError(error, ErrorCodes.API_ERROR)
+    return NextResponse.json({ error: appError.getUserMessage() }, { status: appError.statusCode })
   }
 }

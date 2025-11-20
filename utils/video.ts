@@ -1,59 +1,93 @@
-import type { WatermarkSettings } from "@/types/watermark"
-import type { VideoItem, VideoProcessingOptions } from "@/types/video"
-import { generateId } from "@/utils/format"
+import type { WatermarkSettings } from '@/types/watermark'
+import type { VideoItem, VideoProcessingOptions } from '@/types/video'
+import { generateId } from '@/utils/format'
+import { validateFileSize, cleanupVideo, cleanupCanvas, createObjectURLSafe } from '@/utils/memory'
+import { handleError, ErrorCodes, type AppError } from '@/lib/error-handler'
 
 /**
  * Creates a VideoItem from a File
  */
 export const createVideoItem = async (file: File): Promise<VideoItem> => {
+  // Validate file size
+  const sizeValidation = validateFileSize(file, 'video')
+  if (!sizeValidation.valid) {
+    const { error } = handleError(
+      new Error(sizeValidation.error || 'File too large'),
+      ErrorCodes.FILE_TOO_LARGE
+    )
+    throw error
+  }
+
   return new Promise((resolve, reject) => {
-    const video = document.createElement("video")
-    video.preload = "metadata"
+    const video = document.createElement('video')
+    video.preload = 'metadata'
     video.muted = true
 
-    video.onloadedmetadata = () => {
-      // Create thumbnail
-      const canvas = document.createElement("canvas")
-      const ctx = canvas.getContext("2d")
+    // Create object URL with cleanup tracking
+    const { url: videoUrl, cleanup: cleanupUrl } = createObjectURLSafe(file)
+    video.src = videoUrl
 
-      if (ctx) {
-        canvas.width = video.videoWidth
-        canvas.height = video.videoHeight
-        ctx.drawImage(video, 0, 0)
+    let canvas: HTMLCanvasElement | null = null
 
-        const thumbnail = canvas.toDataURL("image/jpeg", 0.7)
-
-        resolve({
-          id: generateId(),
-          file,
-          name: file.name,
-          duration: video.duration,
-          size: file.size,
-          thumbnail,
-          progress: 0,
-          status: "idle",
-        })
-      } else {
-        resolve({
-          id: generateId(),
-          file,
-          name: file.name,
-          duration: 0,
-          size: file.size,
-          progress: 0,
-          status: "idle",
-        })
+    const cleanup = () => {
+      cleanupUrl()
+      cleanupVideo(video)
+      if (canvas) {
+        cleanupCanvas(canvas)
       }
+    }
 
-      URL.revokeObjectURL(video.src)
+    video.onloadedmetadata = () => {
+      try {
+        // Create thumbnail
+        canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+
+        if (ctx) {
+          canvas.width = video.videoWidth
+          canvas.height = video.videoHeight
+          ctx.drawImage(video, 0, 0)
+
+          const thumbnail = canvas.toDataURL('image/jpeg', 0.7)
+
+          cleanup()
+          resolve({
+            id: generateId(),
+            file,
+            name: file.name,
+            duration: video.duration,
+            size: file.size,
+            thumbnail,
+            progress: 0,
+            status: 'idle',
+          })
+        } else {
+          cleanup()
+          resolve({
+            id: generateId(),
+            file,
+            name: file.name,
+            duration: 0,
+            size: file.size,
+            progress: 0,
+            status: 'idle',
+          })
+        }
+      } catch (error) {
+        cleanup()
+        const { error: appError } = handleError(error, ErrorCodes.VIDEO_LOAD_ERROR)
+        reject(appError)
+      }
     }
 
     video.onerror = () => {
-      URL.revokeObjectURL(video.src)
-      reject(new Error(`Failed to load video: ${file.name}`))
+      cleanup()
+      const { error } = handleError(
+        new Error(`Failed to load video: ${file.name}`),
+        ErrorCodes.VIDEO_LOAD_ERROR
+      )
+      reject(error)
     }
-
-    video.src = URL.createObjectURL(file)
   })
 }
 
@@ -64,10 +98,12 @@ export const processVideo = async (
   video: VideoItem,
   settings: WatermarkSettings,
   options: VideoProcessingOptions,
-  onProgress?: (progress: number) => void,
+  onProgress?: (progress: number) => void
 ): Promise<string> => {
   // Simulate video processing
   return new Promise((resolve, reject) => {
+    const { url: outputUrl, cleanup: cleanupUrl } = createObjectURLSafe(video.file)
+
     let progress = 0
     const interval = setInterval(() => {
       progress += Math.random() * 20
@@ -79,8 +115,7 @@ export const processVideo = async (
 
       if (progress >= 100) {
         clearInterval(interval)
-        // Create a blob URL for the processed video (simulation)
-        const outputUrl = URL.createObjectURL(video.file)
+        // Note: Caller is responsible for revoking this URL
         resolve(outputUrl)
       }
     }, 200)
@@ -90,7 +125,12 @@ export const processVideo = async (
       if (Math.random() < 0.1) {
         // 10% chance of error
         clearInterval(interval)
-        reject(new Error("Processing failed"))
+        cleanupUrl()
+        const { error } = handleError(
+          new Error('Processing failed'),
+          ErrorCodes.VIDEO_PROCESSING_ERROR
+        )
+        reject(error)
       }
     }, 1000)
   })
@@ -103,19 +143,33 @@ export const processVideo = async (
 export const createVideoFromFile = async (
   file: File,
   settings?: WatermarkSettings,
-  watermarkImage?: HTMLImageElement | null,
+  watermarkImage?: HTMLImageElement | null
 ): Promise<Blob> => {
   try {
+    // Validate file size
+    const sizeValidation = validateFileSize(file, 'video')
+    if (!sizeValidation.valid) {
+      const { error } = handleError(
+        new Error(sizeValidation.error || 'File too large'),
+        ErrorCodes.FILE_TOO_LARGE
+      )
+      throw error
+    }
+
     // Validate that the file is actually a video
-    if (!file.type.startsWith("video/")) {
-      throw new Error("Invalid file type: not a video file")
+    if (!file.type.startsWith('video/')) {
+      const { error } = handleError(
+        new Error('Invalid file type: not a video file'),
+        ErrorCodes.INVALID_FILE_TYPE
+      )
+      throw error
     }
 
     // If no settings provided, return original file
     if (!settings) {
       return new Promise((resolve) => {
         setTimeout(() => {
-          resolve(new Blob([file], { type: "video/mp4" }))
+          resolve(new Blob([file], { type: 'video/mp4' }))
         }, 1000)
       })
     }
@@ -123,9 +177,13 @@ export const createVideoFromFile = async (
     // Apply watermark processing
     return await processVideoWithWatermark(file, settings, watermarkImage)
   } catch (error) {
-    console.error("Error in createVideoFromFile:", error)
-    // Fallback to original file
-    return new Blob([file], { type: "video/mp4" })
+    // If it's already an AppError, rethrow it
+    if (error instanceof Error && 'code' in error) {
+      throw error
+    }
+    // Otherwise, wrap it and throw
+    const { error: appError } = handleError(error, ErrorCodes.VIDEO_PROCESSING_ERROR)
+    throw appError
   }
 }
 
@@ -137,53 +195,65 @@ export const processVideoWithWatermark = async (
   videoFile: File,
   settings: WatermarkSettings,
   watermarkImage?: HTMLImageElement | null,
-  onProgress?: (progress: number) => void,
+  onProgress?: (progress: number) => void
 ): Promise<Blob> => {
   return new Promise((resolve, reject) => {
-    const video = document.createElement("video")
-    const canvas = document.createElement("canvas")
-    const ctx = canvas.getContext("2d")
+    const video = document.createElement('video')
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
 
     if (!ctx) {
-      reject(new Error("Could not get canvas context"))
+      reject(new Error('Could not get canvas context'))
       return
     }
 
-    // Create object URL for the video
-    const videoUrl = URL.createObjectURL(videoFile)
+    // Create object URL for the video with cleanup tracking
+    const { url: videoUrl, cleanup: cleanupUrl } = createObjectURLSafe(videoFile)
     video.src = videoUrl
     video.muted = true
     video.playsInline = true
-    video.crossOrigin = "anonymous"
+    video.crossOrigin = 'anonymous'
+
+    let mediaRecorder: MediaRecorder | null = null
+    let stream: MediaStream | null = null
+
+    const cleanup = () => {
+      cleanupUrl()
+      cleanupVideo(video)
+      cleanupCanvas(canvas)
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop())
+      }
+    }
 
     video.onloadedmetadata = () => {
       canvas.width = video.videoWidth || 640
       canvas.height = video.videoHeight || 480
 
       // Check if we need to apply watermark
-      const hasTextWatermark = settings.type === "text" && settings.text.trim()
-      const hasImageWatermark = settings.type === "image" && watermarkImage
+      const hasTextWatermark = settings.type === 'text' && settings.text.trim()
+      const hasImageWatermark = settings.type === 'image' && watermarkImage
 
       if (!hasTextWatermark && !hasImageWatermark) {
         // No watermark needed, return original file
-        URL.revokeObjectURL(videoUrl)
-        resolve(new Blob([videoFile], { type: "video/mp4" }))
+        cleanup()
+        resolve(new Blob([videoFile], { type: 'video/mp4' }))
         return
       }
 
       // Set up MediaRecorder for output
-      const stream = canvas.captureStream(30) // 30 FPS
+      stream = canvas.captureStream(30) // 30 FPS
 
       // Try different codec options
-      let mimeType = "video/webm;codecs=vp9"
+      let mimeType = 'video/webm;codecs=vp9'
       if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = "video/webm;codecs=vp8"
+        mimeType = 'video/webm;codecs=vp8'
         if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = "video/webm"
+          mimeType = 'video/webm'
         }
       }
 
-      const mediaRecorder = new MediaRecorder(stream, { mimeType })
+      mediaRecorder = new MediaRecorder(stream, { mimeType })
       const chunks: Blob[] = []
 
       mediaRecorder.ondataavailable = (event) => {
@@ -193,15 +263,18 @@ export const processVideoWithWatermark = async (
       }
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: "video/mp4" })
-        URL.revokeObjectURL(videoUrl)
+        const blob = new Blob(chunks, { type: 'video/mp4' })
+        cleanup()
         resolve(blob)
       }
 
       mediaRecorder.onerror = (event) => {
-        console.error("MediaRecorder error:", event)
-        URL.revokeObjectURL(videoUrl)
-        reject(new Error("Recording failed"))
+        cleanup()
+        const { error } = handleError(
+          new Error('Recording failed'),
+          ErrorCodes.VIDEO_ENCODING_ERROR
+        )
+        reject(error)
       }
 
       // Start recording
@@ -213,7 +286,9 @@ export const processVideoWithWatermark = async (
       // Process video frame by frame
       const processFrame = () => {
         if (video.ended || video.paused) {
-          mediaRecorder.stop()
+          if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop()
+          }
           return
         }
 
@@ -238,8 +313,12 @@ export const processVideoWithWatermark = async (
           frameCount++
           requestAnimationFrame(processFrame)
         } catch (error) {
-          console.error("Frame processing error:", error)
-          mediaRecorder.stop()
+          cleanup()
+          const { error: appError } = handleError(error, ErrorCodes.VIDEO_PROCESSING_ERROR)
+          if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop()
+          }
+          reject(appError)
         }
       }
 
@@ -248,21 +327,24 @@ export const processVideoWithWatermark = async (
       }
 
       video.onended = () => {
-        mediaRecorder.stop()
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+          mediaRecorder.stop()
+        }
       }
 
       // Start playback
       video.currentTime = 0
       video.play().catch((error) => {
-        console.error("Video play error:", error)
-        reject(error)
+        cleanup()
+        const { error: appError } = handleError(error, ErrorCodes.VIDEO_LOAD_ERROR)
+        reject(appError)
       })
     }
 
-    video.onerror = (error) => {
-      console.error("Video loading error:", error)
-      URL.revokeObjectURL(videoUrl)
-      reject(new Error("Error loading video"))
+    video.onerror = () => {
+      cleanup()
+      const { error } = handleError(new Error('Error loading video'), ErrorCodes.VIDEO_LOAD_ERROR)
+      reject(error)
     }
   })
 }
@@ -270,7 +352,11 @@ export const processVideoWithWatermark = async (
 /**
  * Draws text watermark on canvas
  */
-const drawTextWatermark = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, settings: WatermarkSettings) => {
+const drawTextWatermark = (
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  settings: WatermarkSettings
+) => {
   ctx.save()
   ctx.globalAlpha = settings.opacity / 100
 
@@ -279,18 +365,18 @@ const drawTextWatermark = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElem
 
   // Set color based on font mode
   switch (settings.fontMode) {
-    case "light":
-      ctx.fillStyle = "#D1D5DB"
+    case 'light':
+      ctx.fillStyle = '#D1D5DB'
       break
-    case "dark":
-      ctx.fillStyle = "#374151"
+    case 'dark':
+      ctx.fillStyle = '#374151'
       break
     default:
       ctx.fillStyle = settings.customColor
   }
 
-  ctx.textAlign = "center"
-  ctx.textBaseline = "middle"
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
 
   const x = (settings.positionX / 100) * canvas.width
   const y = (settings.positionY / 100) * canvas.height
@@ -308,7 +394,7 @@ const drawImageWatermark = (
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
   settings: WatermarkSettings,
-  watermarkImage: HTMLImageElement,
+  watermarkImage: HTMLImageElement
 ) => {
   ctx.save()
 

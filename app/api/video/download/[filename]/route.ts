@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { join } from 'path'
 import { readFile } from 'fs/promises'
 import { existsSync } from 'fs'
+import { validatePathParams, videoDownloadSchema } from '@/lib/validation/schema'
+import { handleError, ErrorCodes } from '@/lib/error-handler'
 
 export async function GET(
   request: NextRequest,
@@ -10,14 +12,19 @@ export async function GET(
   try {
     const { filename } = await params
 
-    if (!filename) {
-      return NextResponse.json({ error: 'No filename provided' }, { status: 400 })
+    // Validate path parameters
+    const validation = validatePathParams(videoDownloadSchema, { filename })
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
-    const filepath = join(process.cwd(), 'uploads', filename)
+    const sanitizedFilename = validation.data.filename
+
+    const filepath = join(process.cwd(), 'uploads', sanitizedFilename)
 
     if (!existsSync(filepath)) {
-      return NextResponse.json({ error: 'File not found' }, { status: 404 })
+      const { error } = handleError(new Error('File not found'), ErrorCodes.FILE_READ_ERROR)
+      return NextResponse.json({ error: error.getUserMessage() }, { status: 404 })
     }
 
     const fileBuffer = await readFile(filepath)
@@ -25,7 +32,7 @@ export async function GET(
     // Set appropriate headers for video download
     const headers = new Headers()
     headers.set('Content-Type', 'video/mp4')
-    headers.set('Content-Disposition', `attachment; filename="${filename}"`)
+    headers.set('Content-Disposition', `attachment; filename="${sanitizedFilename}"`)
     headers.set('Content-Length', fileBuffer.length.toString())
 
     return new NextResponse(fileBuffer as unknown as BodyInit, {
@@ -33,7 +40,7 @@ export async function GET(
       headers,
     })
   } catch (error) {
-    console.error('Download error:', error)
-    return NextResponse.json({ error: 'Failed to download video' }, { status: 500 })
+    const { error: appError } = handleError(error, ErrorCodes.FILE_READ_ERROR)
+    return NextResponse.json({ error: appError.getUserMessage() }, { status: appError.statusCode })
   }
 }

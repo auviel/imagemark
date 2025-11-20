@@ -1,12 +1,31 @@
-import type { WatermarkSettings } from "@/types/watermark"
-import { FONT_OPTIONS, ANALYSIS_SIZE, ACCEPTED_FILE_TYPES } from "@/constants/watermark"
+import type { WatermarkSettings } from '@/types/watermark'
+import { FONT_OPTIONS, ANALYSIS_SIZE, ACCEPTED_FILE_TYPES } from '@/constants/watermark'
+import { validateFileSize, cleanupImage, createObjectURLSafe } from '@/utils/memory'
+import { handleError, ErrorCodes } from '@/lib/error-handler'
 
 export const createImageFromFile = (file: File): Promise<HTMLImageElement> => {
+  // Validate file size
+  const sizeValidation = validateFileSize(file, 'image')
+  if (!sizeValidation.valid) {
+    const { error } = handleError(
+      new Error(sizeValidation.error || 'File too large'),
+      ErrorCodes.FILE_TOO_LARGE
+    )
+    return Promise.reject(error)
+  }
+
   return new Promise((resolve, reject) => {
     const img = new Image()
-    img.crossOrigin = "anonymous"
+    img.crossOrigin = 'anonymous'
 
-    const cleanup = () => URL.revokeObjectURL(img.src)
+    // Create object URL with cleanup tracking
+    const { url: imageUrl, cleanup: cleanupUrl } = createObjectURLSafe(file)
+    img.src = imageUrl
+
+    const cleanup = () => {
+      cleanupUrl()
+      cleanupImage(img)
+    }
 
     img.onload = () => {
       cleanup()
@@ -15,16 +34,21 @@ export const createImageFromFile = (file: File): Promise<HTMLImageElement> => {
 
     img.onerror = () => {
       cleanup()
-      reject(new Error(`Failed to load image: ${file.name}`))
+      const { error } = handleError(
+        new Error(`Failed to load image: ${file.name}`),
+        ErrorCodes.IMAGE_LOAD_ERROR
+      )
+      reject(error)
     }
-
-    img.src = URL.createObjectURL(file)
   })
 }
 
-export const analyzeImageBrightness = (image: HTMLImageElement, canvas: HTMLCanvasElement): "light" | "dark" => {
-  const ctx = canvas.getContext("2d", { willReadFrequently: true })
-  if (!ctx) return "light"
+export const analyzeImageBrightness = (
+  image: HTMLImageElement,
+  canvas: HTMLCanvasElement
+): 'light' | 'dark' => {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return 'light'
 
   canvas.width = ANALYSIS_SIZE
   canvas.height = ANALYSIS_SIZE
@@ -46,16 +70,16 @@ export const analyzeImageBrightness = (image: HTMLImageElement, canvas: HTMLCanv
   }
 
   const averageBrightness = (totalBrightness / pixelCount) * 100
-  return averageBrightness < 50 ? "light" : "dark"
+  return averageBrightness < 50 ? 'light' : 'dark'
 }
 
 export const drawWatermarkOnCanvas = (
   image: HTMLImageElement,
   canvas: HTMLCanvasElement,
   settings: WatermarkSettings,
-  watermarkImage?: HTMLImageElement | null,
+  watermarkImage?: HTMLImageElement | null
 ): void => {
-  const ctx = canvas.getContext("2d")
+  const ctx = canvas.getContext('2d')
   if (!ctx) return
 
   // Set canvas size
@@ -67,8 +91,8 @@ export const drawWatermarkOnCanvas = (
   ctx.drawImage(image, 0, 0)
 
   // Early return if no watermark content
-  const hasTextWatermark = settings.type === "text" && settings.text.trim()
-  const hasImageWatermark = settings.type === "image" && watermarkImage
+  const hasTextWatermark = settings.type === 'text' && settings.text.trim()
+  const hasImageWatermark = settings.type === 'image' && watermarkImage
 
   if (!hasTextWatermark && !hasImageWatermark) return
 
@@ -88,28 +112,28 @@ export const drawWatermarkOnCanvas = (
 const drawTextWatermark = (
   ctx: CanvasRenderingContext2D,
   image: HTMLImageElement,
-  settings: WatermarkSettings,
+  settings: WatermarkSettings
 ): void => {
   const fontSize = (settings.fontSize / 100) * image.width
   const selectedFont = FONT_OPTIONS.find((f) => f.name === settings.font)
-  const fontFamily = selectedFont?.family ?? "Inter, sans-serif"
+  const fontFamily = selectedFont?.family ?? 'Inter, sans-serif'
 
   ctx.font = `bold ${fontSize}px ${fontFamily}`
 
   // Set color based on font mode
   switch (settings.fontMode) {
-    case "light":
-      ctx.fillStyle = "#D1D5DB"
+    case 'light':
+      ctx.fillStyle = '#D1D5DB'
       break
-    case "dark":
-      ctx.fillStyle = "#374151"
+    case 'dark':
+      ctx.fillStyle = '#374151'
       break
     default:
       ctx.fillStyle = settings.customColor
   }
 
-  ctx.textAlign = "center"
-  ctx.textBaseline = "middle"
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
 
   const x = (settings.positionX / 100) * image.width
   const y = (settings.positionY / 100) * image.height
@@ -123,7 +147,7 @@ const drawImageWatermark = (
   ctx: CanvasRenderingContext2D,
   image: HTMLImageElement,
   settings: WatermarkSettings,
-  watermarkImage: HTMLImageElement,
+  watermarkImage: HTMLImageElement
 ): void => {
   // Calculate watermark size based on imageSize setting
   const watermarkWidth = (settings.imageSize / 100) * image.width
@@ -148,23 +172,32 @@ const drawImageWatermark = (
 }
 
 export const downloadBlob = (blob: Blob, filename: string): Promise<void> => {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
+  return new Promise((resolve, reject) => {
+    try {
+      const { url, cleanup: cleanupUrl } = createObjectURLSafe(blob)
+      const link = document.createElement('a')
 
-    link.href = url
-    link.download = filename
-    link.style.display = "none"
+      link.href = url
+      link.download = filename
+      link.style.display = 'none'
 
-    document.body.appendChild(link)
-    link.click()
+      document.body.appendChild(link)
+      link.click()
 
-    // Cleanup with slight delay to ensure download starts
-    setTimeout(() => {
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-      resolve()
-    }, 100)
+      // Cleanup with slight delay to ensure download starts
+      setTimeout(() => {
+        try {
+          document.body.removeChild(link)
+        } catch (error) {
+          // Link might already be removed
+        }
+        cleanupUrl()
+        resolve()
+      }, 100)
+    } catch (error) {
+      const { error: appError } = handleError(error, ErrorCodes.FILE_PROCESSING_ERROR)
+      reject(appError)
+    }
   })
 }
 
@@ -175,11 +208,11 @@ export const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
         if (blob) {
           resolve(blob)
         } else {
-          reject(new Error("Failed to create blob"))
+          reject(new Error('Failed to create blob'))
         }
       },
-      "image/png",
-      1.0,
+      'image/png',
+      1.0
     )
   })
 }

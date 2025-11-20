@@ -2,33 +2,34 @@ import { NextRequest, NextResponse } from 'next/server'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
+import { validateRequest, videoUploadSchema, sanitizeFilename } from '@/lib/validation/schema'
+import { validateVideoFile } from '@/utils/validation'
+import { handleError, ErrorCodes } from '@/lib/error-handler'
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
-    const file = formData.get('video') as File
-    
+    const file = formData.get('video') as File | null
+
     if (!file) {
-      return NextResponse.json(
-        { error: 'No video file provided' },
-        { status: 400 }
+      const { error } = handleError(
+        new Error('No video file provided'),
+        ErrorCodes.VALIDATION_ERROR
       )
+      return NextResponse.json({ error: error.getUserMessage() }, { status: 400 })
     }
 
-    // Validate file type
-    const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo']
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        { error: 'Invalid file type. Only MP4, WebM, MOV, and AVI files are allowed.' },
-        { status: 400 }
-      )
+    // Validate using Zod schema
+    const validation = await validateRequest(videoUploadSchema, { video: file })
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
-    // Validate file size (max 100MB)
-    const maxSize = 100 * 1024 * 1024 // 100MB
-    if (file.size > maxSize) {
+    // Validate file content (magic bytes)
+    const contentValidation = await validateVideoFile(file)
+    if (!contentValidation.valid) {
       return NextResponse.json(
-        { error: 'File size exceeds 100MB limit' },
+        { error: contentValidation.error || 'Invalid video file' },
         { status: 400 }
       )
     }
@@ -39,9 +40,10 @@ export async function POST(request: NextRequest) {
       await mkdir(uploadsDir, { recursive: true })
     }
 
-    // Generate unique filename
+    // Generate unique filename with sanitization
     const timestamp = Date.now()
-    const filename = `${timestamp}-${file.name}`
+    const sanitizedName = sanitizeFilename(file.name)
+    const filename = `${timestamp}-${sanitizedName}`
     const filepath = join(uploadsDir, filename)
 
     // Save file
@@ -56,14 +58,10 @@ export async function POST(request: NextRequest) {
       originalName: file.name,
       size: file.size,
       type: file.type,
-      uploadPath: `/uploads/${filename}`
+      uploadPath: `/uploads/${filename}`,
     })
-
   } catch (error) {
-    console.error('Upload error:', error)
-    return NextResponse.json(
-      { error: 'Failed to upload video' },
-      { status: 500 }
-    )
+    const { error: appError } = handleError(error, ErrorCodes.FILE_PROCESSING_ERROR)
+    return NextResponse.json({ error: appError.getUserMessage() }, { status: appError.statusCode })
   }
 }
