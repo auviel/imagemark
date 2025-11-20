@@ -11,21 +11,28 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect, useMemo, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Upload, Download, X, Crop, RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/common'
 import { EditorLayout } from '@/components/editor/EditorLayout'
 import { FeatureSidebar } from '@/components/editor/FeatureSidebar'
-import { ConvertSettings, RemoveBackgroundSettings } from '@/components/editor/feature-settings'
+import {
+  ConvertSettings,
+  RemoveBackgroundSettings,
+  WatermarkSettings,
+} from '@/components/editor/feature-settings'
 import { RotateFlipModal } from '@/components/editor/RotateFlipModal'
 import type { Feature } from '@/constants/features'
 import type { EditorImage, AppliedFeature } from '@/lib/editor/types'
 import { processEditorImage } from '@/lib/editor/feature-pipeline'
 import { FEATURES } from '@/constants/features'
+import type { WatermarkSettings } from '@/features/watermark/types'
+import { drawWatermarkOnCanvas, canvasToBlob } from '@/features/watermark/utils'
 
 function EditorPageContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [images, setImages] = useState<EditorImage[]>([])
   const [activeFeature, setActiveFeature] = useState<Feature | null>(null)
@@ -38,6 +45,7 @@ function EditorPageContent() {
   >({})
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const [dragActive, setDragActive] = useState(false)
+  const [hasAutoSelectedFromUrl, setHasAutoSelectedFromUrl] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadAreaRef = useRef<HTMLDivElement>(null)
 
@@ -68,7 +76,7 @@ function EditorPageContent() {
 
   useEffect(() => {
     const featureParam = searchParams.get('feature')
-    if (featureParam && !activeFeature) {
+    if (featureParam && !activeFeature && !hasAutoSelectedFromUrl) {
       const featureIdMap: Record<string, string> = {
         convert: 'convert',
         'remove-background': 'background-removal',
@@ -79,9 +87,10 @@ function EditorPageContent() {
       if (feature && feature.enabled) {
         setActiveFeature(feature)
         setMobileSheetOpen(true)
+        setHasAutoSelectedFromUrl(true)
       }
     }
-  }, [searchParams, activeFeature])
+  }, [searchParams, activeFeature, hasAutoSelectedFromUrl])
 
   useEffect(() => {
     if (!mounted || images.length > 0) return
@@ -266,6 +275,64 @@ function EditorPageContent() {
     []
   )
 
+  const processWatermark = useCallback(
+    async (
+      image: EditorImage,
+      settings: WatermarkSettings,
+      watermarkImage: HTMLImageElement | null
+    ) => {
+      try {
+        // Load the image from the original file or processed URL
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+
+        // Use processed URL if available, otherwise use original
+        const imageUrl = image.processedUrl || image.originalUrl
+        img.src = imageUrl
+
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve()
+          img.onerror = () => reject(new Error('Failed to load image'))
+        })
+
+        // Create canvas and apply watermark
+        const canvas = document.createElement('canvas')
+        drawWatermarkOnCanvas(img, canvas, settings, watermarkImage)
+
+        // Convert canvas to blob
+        const blob = await canvasToBlob(canvas)
+        const blobUrl = URL.createObjectURL(blob)
+
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === image.id
+              ? {
+                  ...img,
+                  processedUrl: blobUrl,
+                  processedImageUrl: null, // Watermark is client-side, no external URL
+                  status: 'completed',
+                }
+              : img
+          )
+        )
+      } catch (error) {
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === image.id
+              ? {
+                  ...img,
+                  status: 'error',
+                  errorMessage:
+                    error instanceof Error ? error.message : 'Watermark processing failed',
+                }
+              : img
+          )
+        )
+      }
+    },
+    []
+  )
+
   const processRemoveBackground = useCallback(
     async (image: EditorImage, compression: 'lossless' | 'lossy' = 'lossless') => {
       try {
@@ -403,7 +470,13 @@ function EditorPageContent() {
 
       setImages((prev) =>
         prev.map((img) => {
-          const existingFeature = img.appliedFeatures.find((f) => f.featureId === feature.id)
+          // For watermark, always add a new feature (don't replace)
+          // For other features, replace if exists
+          const existingFeature =
+            feature.id === 'watermark'
+              ? null
+              : img.appliedFeatures.find((f) => f.featureId === feature.id)
+
           const newFeature: AppliedFeature = {
             featureId: feature.id,
             featureName: feature.name,
@@ -449,9 +522,20 @@ function EditorPageContent() {
         })
       }
 
+      if (feature.id === 'watermark') {
+        setImages((currentImages) => {
+          const watermarkSettings = settings.watermarkSettings as WatermarkSettings
+          const watermarkImage = settings.watermarkImage as HTMLImageElement | null
+          currentImages.forEach((img) => {
+            processWatermark(img, watermarkSettings, watermarkImage)
+          })
+          return currentImages
+        })
+      }
+
       setActiveFeature(null)
     },
-    [processConvertImage, processRemoveBackground]
+    [processConvertImage, processRemoveBackground, processWatermark]
   )
 
   const currentFormat = useMemo(() => {
@@ -506,6 +590,154 @@ function EditorPageContent() {
           }}
           isProcessing={images.some((img) => img.status === 'processing')}
         />
+      ) : activeFeature.id === 'watermark' ? (
+        <WatermarkSettings
+          onApply={(watermarkSettings, watermarkImage) => {
+            handleApplyFeature(activeFeature, {
+              watermarkSettings,
+              watermarkImage,
+            })
+          }}
+          onUpdate={(watermarkId, watermarkSettings, watermarkImage) => {
+            // Update existing watermark
+            // watermarkId format: "imageId::order"
+            const [imageId, orderStr] = watermarkId.split('::')
+            const order = parseInt(orderStr, 10)
+
+            setImages((prev) =>
+              prev.map((img) => {
+                if (img.id === imageId) {
+                  // Find and update the watermark feature with this order
+                  const updatedFeatures = img.appliedFeatures.map((f) => {
+                    if (f.featureId === 'watermark' && f.order === order) {
+                      return {
+                        ...f,
+                        settings: {
+                          watermarkSettings,
+                          watermarkImage,
+                        },
+                      }
+                    }
+                    return f
+                  })
+
+                  return {
+                    ...img,
+                    appliedFeatures: updatedFeatures,
+                    status: 'processing',
+                  }
+                }
+                return img
+              })
+            )
+
+            // Reprocess the image with updated watermark
+            setTimeout(() => {
+              const image = images.find((img) => img.id === imageId)
+              if (image) {
+                const updatedFeatures = image.appliedFeatures.map((f) => {
+                  if (f.featureId === 'watermark' && f.order === order) {
+                    return {
+                      ...f,
+                      settings: {
+                        watermarkSettings,
+                        watermarkImage,
+                      },
+                    }
+                  }
+                  return f
+                })
+
+                processWatermark(image, watermarkSettings, watermarkImage)
+              }
+            }, 0)
+          }}
+          onRemove={(watermarkId) => {
+            // Remove specific watermark instance
+            // watermarkId format: "imageId::order"
+            const [imageId, orderStr] = watermarkId.split('::')
+            const order = parseInt(orderStr, 10)
+
+            setImages((prev) => {
+              const updatedImages = prev.map((img) => {
+                if (img.id === imageId) {
+                  // Remove the watermark feature with this specific order
+                  const updatedFeatures = img.appliedFeatures.filter(
+                    (f) => !(f.featureId === 'watermark' && f.order === order)
+                  )
+                  return {
+                    ...img,
+                    appliedFeatures: updatedFeatures,
+                    status: 'processing',
+                  }
+                }
+                return img
+              })
+
+              // Reprocess images without watermark
+              updatedImages.forEach((img) => {
+                if (img.status === 'processing') {
+                  const updatedFeatures = img.appliedFeatures
+                  if (updatedFeatures.length > 0) {
+                    // Reapply remaining features
+                    processEditorImage(img.originalFile, updatedFeatures)
+                      .then((result) => {
+                        const blobUrl = URL.createObjectURL(result)
+                        setImages((prev) =>
+                          prev.map((i) =>
+                            i.id === img.id
+                              ? {
+                                  ...i,
+                                  processedUrl: blobUrl,
+                                  status: 'completed',
+                                  appliedFeatures: updatedFeatures,
+                                }
+                              : i
+                          )
+                        )
+                      })
+                      .catch((error) => {
+                        console.error('Failed to reprocess image:', error)
+                        setImages((prev) =>
+                          prev.map((i) =>
+                            i.id === img.id
+                              ? {
+                                  ...i,
+                                  status: 'error',
+                                  errorMessage:
+                                    error instanceof Error ? error.message : 'Processing failed',
+                                }
+                              : i
+                          )
+                        )
+                      })
+                  } else {
+                    // No features left, revert to original
+                    setImages((prev) =>
+                      prev.map((i) =>
+                        i.id === img.id
+                          ? {
+                              ...i,
+                              processedUrl: null,
+                              status: 'idle',
+                              appliedFeatures: [],
+                            }
+                          : i
+                      )
+                    )
+                  }
+                }
+              })
+
+              return updatedImages
+            })
+          }}
+          isProcessing={images.some((img) => img.status === 'processing')}
+          previewImageUrl={
+            images.length > 0 ? images[0].processedUrl || images[0].originalUrl : undefined
+          }
+          images={images}
+        />
       ) : (
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
@@ -536,6 +768,14 @@ function EditorPageContent() {
       isSettingsView={!!activeFeature}
       onBack={() => {
         setActiveFeature(null)
+        // Clear the feature parameter from URL when going back
+        const currentParams = new URLSearchParams(searchParams.toString())
+        currentParams.delete('feature')
+        currentParams.delete('from')
+        currentParams.delete('to')
+        currentParams.delete('format')
+        const newUrl = currentParams.toString() ? `/editor?${currentParams.toString()}` : '/editor'
+        router.replace(newUrl)
       }}
       settingsTitle={activeFeature?.name || 'Settings'}
       mobileSheetOpen={mobileSheetOpen}
@@ -607,11 +847,18 @@ function EditorPageContent() {
                     const removeBgFeature = image.appliedFeatures.find(
                       (f) => f.featureId === 'remove-background'
                     )
+                    const watermarkFeature = image.appliedFeatures.find(
+                      (f) => f.featureId === 'watermark'
+                    )
 
                     let extension = 'png'
-                    if (convertFeature && !removeBgFeature) {
+                    // Watermark always outputs PNG, but if convert was applied, use that format
+                    if (convertFeature && !removeBgFeature && !watermarkFeature) {
                       const targetFormat = convertFeature.settings?.format || 'png'
                       extension = targetFormat === 'jpg' ? 'jpeg' : targetFormat
+                    } else if (watermarkFeature) {
+                      // Watermark outputs PNG
+                      extension = 'png'
                     }
 
                     const originalName = image.originalFile.name.replace(/\.[^/.]+$/, '')
@@ -776,11 +1023,18 @@ function EditorPageContent() {
                             const removeBgFeature = image.appliedFeatures.find(
                               (f) => f.featureId === 'background-removal'
                             )
+                            const watermarkFeature = image.appliedFeatures.find(
+                              (f) => f.featureId === 'watermark'
+                            )
 
                             let extension = 'png'
-                            if (convertFeature && !removeBgFeature) {
+                            // Watermark always outputs PNG, but if convert was applied, use that format
+                            if (convertFeature && !removeBgFeature && !watermarkFeature) {
                               const targetFormat = convertFeature.settings?.format || 'png'
                               extension = targetFormat === 'jpg' ? 'jpeg' : targetFormat
+                            } else if (watermarkFeature) {
+                              // Watermark outputs PNG
+                              extension = 'png'
                             }
 
                             let downloadUrl: string
