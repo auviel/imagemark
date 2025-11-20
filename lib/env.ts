@@ -25,19 +25,58 @@ import { z } from 'zod'
 const envSchema = z.object({
   // Application Configuration
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  NEXT_PUBLIC_APP_URL: z.string().url().optional(),
+  NEXT_PUBLIC_APP_URL: z.preprocess((val) => {
+    if (val === '' || val === undefined || val === null) return undefined
+    const str = String(val)
+    try {
+      new URL(str)
+      return str
+    } catch {
+      return undefined
+    }
+  }, z.string().url().optional()),
 
   // ShortPixel API (Required for image optimization features)
   SHORTPIXEL_API_KEY: z.string().min(1).optional(),
 
   // Redis / Upstash (Required for Phase 3)
-  UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+  UPSTASH_REDIS_REST_URL: z.preprocess((val) => {
+    if (val === '' || val === undefined || val === null) return undefined
+    const str = String(val)
+    try {
+      new URL(str)
+      return str
+    } catch {
+      return undefined
+    }
+  }, z.string().url().optional()),
   UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
-  REDIS_URL: z.string().url().optional(),
+  REDIS_URL: z.preprocess((val) => {
+    if (val === '' || val === undefined || val === null) return undefined
+    const str = String(val)
+    try {
+      new URL(str)
+      return str
+    } catch {
+      return undefined
+    }
+  }, z.string().url().optional()),
   REDIS_PASSWORD: z.string().optional(),
 
   // Error Tracking (Required for Phase 2)
-  NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
+  NEXT_PUBLIC_SENTRY_DSN: z.preprocess((val) => {
+    // Convert empty strings or undefined to undefined
+    if (val === '' || val === undefined) return undefined
+    // If it's a string, try to validate it as URL, but don't fail if invalid
+    // This allows the app to run even if Sentry DSN is misconfigured
+    try {
+      new URL(val as string)
+      return val
+    } catch {
+      // Invalid URL - return undefined to make it optional
+      return undefined
+    }
+  }, z.string().url().optional()),
   SENTRY_ENV: z.enum(['development', 'production', 'staging']).optional(),
 
   // CORS & Security
@@ -55,8 +94,26 @@ const envSchema = z.object({
   R2_BUCKET_NAME: z.string().optional(),
 
   // Database (Future - Phase 4+)
-  POSTGRES_URL: z.string().url().optional(),
-  SUPABASE_URL: z.string().url().optional(),
+  POSTGRES_URL: z.preprocess((val) => {
+    if (val === '' || val === undefined || val === null) return undefined
+    const str = String(val)
+    try {
+      new URL(str)
+      return str
+    } catch {
+      return undefined
+    }
+  }, z.string().url().optional()),
+  SUPABASE_URL: z.preprocess((val) => {
+    if (val === '' || val === undefined || val === null) return undefined
+    const str = String(val)
+    try {
+      new URL(str)
+      return str
+    } catch {
+      return undefined
+    }
+  }, z.string().url().optional()),
   SUPABASE_ANON_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 

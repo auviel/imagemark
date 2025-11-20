@@ -167,6 +167,11 @@
 - **User Value**: "Remove backgrounds instantly with AI"
 - **UI**: Upload → AI processing → Preview → Download (with/without background)
 - **Priority**: 🔥 High (Unique feature, high demand)
+- **Known Limitations**:
+  - ✅ PNG files: Transparent background (works perfectly)
+  - ⚠️ JPG files: White background (JPG doesn't support transparency)
+  - **TODO**: Convert JPG to PNG first before background removal for transparent backgrounds
+  - **Status**: Will be implemented after format conversion feature is complete
 
 ---
 
