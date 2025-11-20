@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { shortPixelClient } from '@/lib/api/shortpixel'
+import { convertImage } from '@/lib/api/shortpixel/clients'
 import { validateRequest, imageUploadSchema } from '@/lib/validation/schema'
 import { handleError, ErrorCodes } from '@/lib/error-handler'
 import { successResponse, errorResponse, validationErrorResponse } from '@/lib/api/response'
@@ -50,8 +50,8 @@ export async function POST(request: NextRequest) {
     // Normalize format (jpg -> jpeg for ShortPixel)
     const normalizedFormat = format === 'jpg' ? 'jpeg' : format
 
-    // Convert image format using ShortPixel
-    const result = await shortPixelClient.convert(file, normalizedFormat)
+    // Convert image format using ShortPixel (lazy-loaded client)
+    const result = await convertImage(file, normalizedFormat)
 
     // Handle pending status (image is still processing)
     if (result.status === 'pending') {
@@ -83,10 +83,26 @@ export async function POST(request: NextRequest) {
       imageBlob = result.optimizedImage
     }
 
+    // Ensure correct MIME type based on target format
+    const mimeTypes: Record<string, string> = {
+      jpeg: 'image/jpeg',
+      jpg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+      avif: 'image/avif',
+      gif: 'image/gif',
+    }
+
+    const correctMimeType = mimeTypes[normalizedFormat] || imageBlob.type || 'image/jpeg'
+
+    // Create a new blob with the correct MIME type
+    // This ensures proper file type recognition by macOS Finder
+    const typedBlob = new Blob([imageBlob], { type: correctMimeType })
+
     // Convert blob to base64 for response
-    const arrayBuffer = await imageBlob.arrayBuffer()
+    const arrayBuffer = await typedBlob.arrayBuffer()
     const base64 = Buffer.from(arrayBuffer).toString('base64')
-    const dataUrl = `data:${imageBlob.type};base64,${base64}`
+    const dataUrl = `data:${correctMimeType};base64,${base64}`
 
     return successResponse({
       convertedImage: dataUrl,

@@ -39,7 +39,6 @@ export default function ConvertPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const [previewImage, setPreviewImage] = useState<ProcessedImage | null>(null)
-  const [defaultFormat, setDefaultFormat] = useState<string>('webp')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -117,13 +116,21 @@ export default function ConvertPage() {
         throw new Error('Invalid response from server')
       }
 
+      // Convert base64 data URL to Blob for proper file handling
+      // This ensures macOS Finder can generate thumbnails correctly
+      const base64Response = await fetch(data.data.convertedImage)
+      const processedBlob = await base64Response.blob()
+
+      // Create object URL from blob for proper MIME type handling
+      const blobUrl = URL.createObjectURL(processedBlob)
+
       // Update with converted image
       setImages((prev) =>
         prev.map((img) =>
           img.id === image.id
             ? {
                 ...img,
-                convertedUrl: data.data.convertedImage,
+                convertedUrl: blobUrl,
                 status: 'completed',
                 originalSize: data.data.originalSize,
                 convertedSize: data.data.convertedSize,
@@ -174,13 +181,44 @@ export default function ConvertPage() {
   const handleDownload = useCallback((image: ProcessedImage) => {
     if (!image.convertedUrl) return
 
-    const link = document.createElement('a')
-    link.href = image.convertedUrl
-    const originalName = image.originalFile.name.replace(/\.[^/.]+$/, '')
-    link.download = `${originalName}.${image.targetFormat}`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    // Fetch the blob URL to get the actual blob
+    fetch(image.convertedUrl)
+      .then((response) => response.blob())
+      .then((blob) => {
+        // Determine correct MIME type based on format
+        const mimeTypes: Record<string, string> = {
+          jpeg: 'image/jpeg',
+          jpg: 'image/jpeg',
+          png: 'image/png',
+          webp: 'image/webp',
+          avif: 'image/avif',
+          gif: 'image/gif',
+        }
+
+        const mimeType = mimeTypes[image.targetFormat] || blob.type || 'image/jpeg'
+
+        // Create a new blob with the correct MIME type
+        // This ensures macOS Finder recognizes the file type correctly
+        const typedBlob = new Blob([blob], { type: mimeType })
+
+        // Create object URL from typed blob
+        const url = URL.createObjectURL(typedBlob)
+
+        // Create download link
+        const link = document.createElement('a')
+        link.href = url
+        const originalName = image.originalFile.name.replace(/\.[^/.]+$/, '')
+        link.download = `${originalName}.${image.targetFormat}`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+        // Clean up object URL after a short delay
+        setTimeout(() => URL.revokeObjectURL(url), 100)
+      })
+      .catch((error) => {
+        console.error('Download failed:', error)
+      })
   }, [])
 
   if (!mounted) {

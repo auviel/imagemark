@@ -67,15 +67,11 @@ export function UploadArea({
             </div>
             <Button
               size="lg"
-              className="bg-teal-600 hover:bg-teal-700 text-white px-8 py-3 text-lg font-semibold mb-4"
+              className="bg-teal-600 hover:bg-teal-700 text-white px-8 py-3 text-lg font-semibold"
               onClick={() => fileInputRef.current?.click()}
             >
               Choose Images or Videos
             </Button>
-            <p className="text-gray-500">
-              or drag and drop • JPG, PNG, GIF, WebP, BMP, TIFF, SVG, MP4, MOV • Multiple files
-              supported
-            </p>
           </div>
         )}
       </div>

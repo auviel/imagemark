@@ -2,9 +2,7 @@
 
 import type React from 'react'
 import { useState, useRef, useCallback, useMemo, Suspense, lazy } from 'react'
-import { Settings, ChevronDown, Shield, Zap, Download } from 'lucide-react'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
+import { Settings, Shield, Zap, Download, Image as ImageIcon } from 'lucide-react'
 import { useEffect } from 'react'
 
 // Watermark feature
@@ -36,15 +34,11 @@ import {
 import { useDebounce } from '@/hooks/useDebounce'
 
 // Layout components
-import { Footer } from '@/components/layout'
-import { UnifiedToolbar } from '@/components/layout'
+import { Footer, UnifiedToolbar, FeaturePageLayout } from '@/components/layout'
 
 // Common components
-import { ImageMarkLogo } from '@/components/common'
 import { LoadingSpinner } from '@/components/common'
-import { FAQ } from '@/components/common'
-import { Breadcrumbs } from '@/components/common'
-import { FAQ_DATA } from '@/data/faq'
+import { WATERMARK_FAQ_DATA } from '@/data/faq/watermark'
 
 // Lazy load heavy components
 const ImageSettingsModal = lazy(() => import('@/features/watermark/components/ImageSettingsModal'))
@@ -620,28 +614,34 @@ export default function WatermarkingTool() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
-      {/* Breadcrumbs */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        <Breadcrumbs />
-      </div>
-
-      {/* Hero section */}
-      <main className="max-w-4xl mx-auto px-4 py-8 sm:py-16 text-center">
-        <div className="mb-12">
-          <h1 className="text-4xl sm:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-            Add Watermarks{' '}
-            <span className="bg-teal-100 text-teal-800 px-3 py-1 rounded-full font-semibold">
-              Free
-            </span>
-          </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-            Protect your images and videos with custom watermarks. Fast, secure, and completely
-            free.
-          </p>
-        </div>
-
-        {/* Upload area */}
+    <FeaturePageLayout
+      icon={ImageIcon}
+      title="Add Watermarks"
+      description="Add custom watermarks to protect your images and videos."
+      iconColor="teal"
+      features={[
+        {
+          icon: Zap,
+          title: 'Lightning Fast',
+          description: 'Process multiple images and videos in seconds',
+        },
+        {
+          icon: Shield,
+          title: '100% Private',
+          description: 'Files never leave your browser',
+        },
+        {
+          icon: Download,
+          title: 'Always Free',
+          description: 'No limits, no subscriptions',
+        },
+      ]}
+      faqItems={WATERMARK_FAQ_DATA}
+      faqShowAll={false}
+      faqMaxItems={3}
+    >
+      {/* Upload area */}
+      <div className="max-w-4xl mx-auto">
         <UploadArea
           dragActive={dragActive}
           isProcessing={isProcessing}
@@ -653,60 +653,9 @@ export default function WatermarkingTool() {
           onFileSelect={handleInputChange}
           fileInputRef={fileInputRef}
         />
-
-        {/* Features */}
-        <div className="grid sm:grid-cols-3 gap-8">
-          <div className="text-center">
-            <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <Zap className="w-6 h-6 text-teal-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Lightning Fast</h3>
-            <p className="text-gray-600 text-sm">Process multiple images and videos in seconds</p>
-          </div>
-          <div className="text-center">
-            <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <Shield className="w-6 h-6 text-teal-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">100% Private</h3>
-            <p className="text-gray-600 text-sm">Files never leave your browser</p>
-          </div>
-          <div className="text-center">
-            <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <Download className="w-6 h-6 text-teal-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Always Free</h3>
-            <p className="text-gray-600 text-sm">No limits, no subscriptions</p>
-          </div>
-        </div>
-
-        {/* FAQ Section */}
-        <section className="py-16">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h2>
-              <p className="text-lg text-gray-600">
-                Quick answers to common questions about ImageMark
-              </p>
-            </div>
-
-            <FAQ items={FAQ_DATA} maxItems={3} />
-
-            <div className="text-center mt-8">
-              <Link
-                href="/faq"
-                className="inline-flex items-center text-teal-600 hover:text-teal-700 font-medium"
-              >
-                View all FAQs
-                <ChevronDown className="w-4 h-4 ml-1" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <Footer />
+      </div>
 
       <canvas ref={analysisCanvasRef} style={{ display: 'none' }} />
-    </div>
+    </FeaturePageLayout>
   )
 }

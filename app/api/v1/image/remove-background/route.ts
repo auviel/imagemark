@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { shortPixelClient } from '@/lib/api/shortpixel'
+import { removeBackground } from '@/lib/api/shortpixel/clients'
 import { validateRequest, imageUploadSchema } from '@/lib/validation/schema'
 import { handleError, ErrorCodes } from '@/lib/error-handler'
 import { successResponse, errorResponse, validationErrorResponse } from '@/lib/api/response'
@@ -26,8 +26,8 @@ export async function POST(request: NextRequest) {
       return validationErrorResponse(validation.error)
     }
 
-    // Process background removal using ShortPixel
-    const result = await shortPixelClient.removeBackground(file)
+    // Process background removal using ShortPixel (lazy-loaded client)
+    const result = await removeBackground(file)
 
     if (result.status === 'error' || !result.optimizedImage) {
       const { error } = handleError(

@@ -176,11 +176,41 @@ export class ShortPixelClient {
    * Convert image format
    */
   async convert(image: File | Blob | string, targetFormat: string): Promise<OptimizeResult> {
-    return this.optimize({
-      image,
-      options: {
-        convertTo: targetFormat as any,
-      },
+    return this.executeWithRetry(async () => {
+      const formData = new FormData()
+
+      // Add API key
+      formData.append('key', this.config.apiKey)
+
+      // Handle image input
+      if (image instanceof File || image instanceof Blob) {
+        const fileName = image instanceof File ? image.name : 'image.jpg'
+        formData.append('file1', image)
+        formData.append('file_paths', JSON.stringify({ file1: fileName }))
+      } else if (typeof image === 'string') {
+        formData.append('urllist', JSON.stringify([image]))
+      } else {
+        throw new ShortPixelError(
+          'Invalid image input. Must be File, Blob, or URL string.',
+          ShortPixelErrorCodes.INVALID_FORMAT,
+          400
+        )
+      }
+
+      // Add format conversion parameter
+      formData.append('convertto', `+${targetFormat}`)
+
+      // Add wait parameter for async processing
+      formData.append('wait', '30')
+
+      // Use ShortPixel's post-reducer.php endpoint
+      const response = await this.makeRequest('/post-reducer.php', {
+        method: 'POST',
+        body: formData,
+      })
+
+      // Parse response with target format context
+      return this.parseOptimizeResponse(response, { targetFormat })
     })
   }
 
@@ -567,9 +597,14 @@ export class ShortPixelClient {
    * Parse optimization response from ShortPixel API
    * Handles ShortPixel's response format
    *
+   * @param response - HTTP response from ShortPixel API
+   * @param context - Optional context (e.g., target format for conversion)
    * @see https://shortpixel.com/api-docs - ShortPixel API Documentation
    */
-  private async parseOptimizeResponse(response: Response): Promise<OptimizeResult> {
+  private async parseOptimizeResponse(
+    response: Response,
+    context?: { targetFormat?: string; isBackgroundRemoval?: boolean }
+  ): Promise<OptimizeResult> {
     const data = await response.json()
 
     // Log the actual response for debugging (only in development)
@@ -634,40 +669,54 @@ export class ShortPixelClient {
           (result as any).BgRemovedLosslessURL ||
           (result as any).BgRemovedLossyURL
 
-        // For format conversion, check for format-specific URLs (WebP, AVIF)
-        // Priority: Format-specific URL > BgRemovedURL > LosslessURL > LossyURL
-        // Check if convertTo was requested (format conversion)
-        const hasFormatConversion = (result as any).convertTo || (result as any).Type
+        // Helper function to filter out "NA" values and invalid URLs
+        const isValidUrl = (url: any): url is string => {
+          return typeof url === 'string' && url !== 'NA' && url.trim().length > 0 && url !== 'null'
+        }
 
-        // Determine which URL to use based on conversion target
+        // Determine which URL to use based on request context
         let optimizedImageUrl: string | undefined
 
-        if (hasFormatConversion) {
-          // For format conversion, prefer format-specific URLs
-          const targetFormat = String(hasFormatConversion).toLowerCase()
-          if (targetFormat.includes('webp')) {
-            optimizedImageUrl =
-              result.WebPLossyURL || result.WebPLosslessURL || result.LossyURL || result.LosslessURL
-          } else if (targetFormat.includes('avif')) {
-            optimizedImageUrl =
-              result.AVIFLossyURL || result.AVIFLosslessURL || result.LossyURL || result.LosslessURL
-          } else {
-            // For other formats (PNG, JPEG), use standard URLs
-            optimizedImageUrl = result.LosslessURL || result.LossyURL
+        // If this is a format conversion, prioritize format-specific URLs
+        if (context?.targetFormat) {
+          const targetFormat = context.targetFormat.toLowerCase()
+
+          if (targetFormat === 'webp' || targetFormat === '+webp') {
+            // For WebP conversion, check WebP URLs first
+            optimizedImageUrl = isValidUrl(result.WebPLosslessURL)
+              ? result.WebPLosslessURL
+              : isValidUrl(result.WebPLossyURL)
+                ? result.WebPLossyURL
+                : undefined
+          } else if (targetFormat === 'avif' || targetFormat === '+avif') {
+            // For AVIF conversion, check AVIF URLs first
+            optimizedImageUrl = isValidUrl(result.AVIFLosslessURL)
+              ? result.AVIFLosslessURL
+              : isValidUrl(result.AVIFLossyURL)
+                ? result.AVIFLossyURL
+                : undefined
+          } else if (
+            targetFormat === 'jpeg' ||
+            targetFormat === 'jpg' ||
+            targetFormat === '+jpeg' ||
+            targetFormat === '+jpg'
+          ) {
+            // For JPEG conversion, check JPEG URLs first
+            optimizedImageUrl = isValidUrl(result.JpgLosslessURL)
+              ? result.JpgLosslessURL
+              : isValidUrl(result.JpgLossyURL)
+                ? result.JpgLossyURL
+                : undefined
           }
         }
 
-        // Fallback to standard priority if no format conversion or URL not found
+        // If format-specific URL not found or not a format conversion, use standard priority
         if (!optimizedImageUrl) {
           optimizedImageUrl =
             bgRemovedUrl ||
-            result.LosslessURL ||
-            result.LossyURL ||
-            result.WebPLossyURL ||
-            result.WebPLosslessURL ||
-            result.AVIFLossyURL ||
-            result.AVIFLosslessURL ||
-            result.url
+            (isValidUrl(result.LosslessURL) ? result.LosslessURL : undefined) ||
+            (isValidUrl(result.LossyURL) ? result.LossyURL : undefined) ||
+            (isValidUrl(result.url) ? result.url : undefined)
         }
 
         if (process.env.NODE_ENV === 'development') {
@@ -675,15 +724,20 @@ export class ShortPixelClient {
             BgRemovedURL: bgRemovedUrl,
             LosslessURL: result.LosslessURL,
             LossyURL: result.LossyURL,
+            WebPLosslessURL: result.WebPLosslessURL,
+            WebPLossyURL: result.WebPLossyURL,
+            AVIFLosslessURL: result.AVIFLosslessURL,
+            AVIFLossyURL: result.AVIFLossyURL,
+            JpgLosslessURL: result.JpgLosslessURL,
+            JpgLossyURL: result.JpgLossyURL,
             SelectedURL: optimizedImageUrl,
-            AllFields: Object.keys(result),
-            FullResponse: JSON.stringify(result, null, 2),
+            TargetFormat: context?.targetFormat,
+            IsBackgroundRemoval: context?.isBackgroundRemoval,
           })
 
-          // Check if background removal was actually applied
-          // When bg_remove='1' is set, ShortPixel returns the background-removed image
-          // in LosslessURL/LossyURL (not a separate field)
-          if (result.LosslessURL && !bgRemovedUrl) {
+          // Only log background removal info if this was actually a background removal request
+          // Check context to avoid misleading logs during format conversion
+          if (context?.isBackgroundRemoval && result.LosslessURL && !bgRemovedUrl) {
             console.log('[ShortPixel] ℹ️  Background removal requested.')
             console.log(
               '[ShortPixel] ShortPixel returns background-removed image in LosslessURL/LossyURL.'
@@ -693,6 +747,33 @@ export class ShortPixelClient {
             )
             console.log('[ShortPixel] Note: PNG files will have TRANSPARENT background.')
             console.log('[ShortPixel] The LosslessURL should contain the background-removed image.')
+          }
+
+          // Log format conversion info if this was a format conversion
+          if (context?.targetFormat) {
+            const targetFormat = context.targetFormat.toLowerCase()
+            const formatUrls: Record<string, any> = {
+              webp: { lossless: result.WebPLosslessURL, lossy: result.WebPLossyURL },
+              avif: { lossless: result.AVIFLosslessURL, lossy: result.AVIFLossyURL },
+              jpeg: { lossless: result.JpgLosslessURL, lossy: result.JpgLossyURL },
+              jpg: { lossless: result.JpgLosslessURL, lossy: result.JpgLossyURL },
+            }
+
+            const formatInfo = formatUrls[targetFormat]
+            if (formatInfo) {
+              if (formatInfo.lossless === 'NA' && formatInfo.lossy === 'NA') {
+                console.log(
+                  `[ShortPixel] ⚠️  Format conversion to ${targetFormat.toUpperCase()} returned "NA" URLs.`
+                )
+                console.log(
+                  '[ShortPixel] Falling back to standard format. ShortPixel may need more time to process format conversion.'
+                )
+              } else {
+                console.log(
+                  `[ShortPixel] ✅ Format conversion to ${targetFormat.toUpperCase()} successful.`
+                )
+              }
+            }
           }
         }
 
