@@ -78,7 +78,7 @@ export default function HomePage() {
                             <IconComponent className="w-6 h-6 text-teal-600" />
                           </div>
                           {feature.enabled && (
-                            <Badge variant="default" className="bg-teal-600">
+                            <Badge variant="default" className="bg-teal-600 text-white">
                               Available
                             </Badge>
                           )}

@@ -30,7 +30,7 @@ export function ComingSoon() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button asChild className="flex-1 bg-teal-600 hover:bg-teal-700">
+            <Button asChild className="flex-1 bg-teal-600 hover:bg-teal-700 text-white">
               <Link href="/">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Home
