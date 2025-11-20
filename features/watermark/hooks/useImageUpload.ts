@@ -27,8 +27,7 @@ export const useImageUpload = () => {
       })
 
       return await Promise.all(imagePromises)
-    } catch (error) {
-      console.error('Error processing images:', error)
+    } catch {
       return []
     } finally {
       setIsProcessing(false)

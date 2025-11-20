@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { FAQ } from '@/components/common'
+import { FAQ, Breadcrumbs } from '@/components/common'
 import { FAQ_DATA } from '@/data/faq'
 import { Footer } from '@/components/layout'
 import { ImageMarkLogo } from '@/components/common'
@@ -23,6 +23,11 @@ export const metadata: Metadata = {
 export default function FAQPage() {
   return (
     <div className="min-h-screen bg-white">
+      {/* Breadcrumbs */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <Breadcrumbs />
+      </div>
+
       {/* Header */}
       <header className="border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

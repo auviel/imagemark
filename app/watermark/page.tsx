@@ -43,6 +43,7 @@ import { UnifiedToolbar } from '@/components/layout'
 import { ImageMarkLogo } from '@/components/common'
 import { LoadingSpinner } from '@/components/common'
 import { FAQ } from '@/components/common'
+import { Breadcrumbs } from '@/components/common'
 import { FAQ_DATA } from '@/data/faq'
 
 // Lazy load heavy components
@@ -50,7 +51,6 @@ const ImageSettingsModal = lazy(() => import('@/features/watermark/components/Im
 const VideoSettingsModal = lazy(() => import('@/features/watermark/components/VideoSettingsModal'))
 
 export default function WatermarkingTool() {
-  // State
   const [mounted, setMounted] = useState(false)
   const [images, setImages] = useState<ImageItem[]>([])
   const [videos, setVideos] = useState<VideoItem[]>([])
@@ -67,10 +67,8 @@ export default function WatermarkingTool() {
   const [showPositionPresets, setShowPositionPresets] = useState(false)
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
 
-  // Refs
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Custom Hooks
   const { processFiles, isProcessing } = useImageUpload()
   const { processVideos, isProcessingVideos } = useVideoUpload()
   const { analysisCanvasRef, analyzeBrightness, processImage, hasWatermark } = useWatermark(
@@ -78,15 +76,12 @@ export default function WatermarkingTool() {
     watermarkImage
   )
 
-  // Debounced settings for performance
   const debouncedSettings = useDebounce(settings, 300)
 
-  // Effects
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Update canvases when settings change (debounced)
   useEffect(() => {
     if (images.length > 0 && hasWatermark) {
       setImages((prev) =>
@@ -96,9 +91,8 @@ export default function WatermarkingTool() {
         }))
       )
     }
-  }, [debouncedSettings, hasWatermark, watermarkImage]) // Remove processImage and images.length from dependencies to prevent infinite loops
+  }, [debouncedSettings, hasWatermark, watermarkImage])
 
-  // Replace the video processing useEffect with this corrected version:
   useEffect(() => {
     if (videos.length > 0) {
       const processVideos = async () => {
@@ -118,8 +112,7 @@ export default function WatermarkingTool() {
                 }
               }
               return videoItem
-            } catch (error) {
-              console.error('Error processing video:', error)
+            } catch {
               return videoItem
             }
           })
@@ -131,7 +124,6 @@ export default function WatermarkingTool() {
     }
   }, [debouncedSettings, hasWatermark, watermarkImage, videos.length])
 
-  // Keyboard event handler - only run on client side
   useEffect(() => {
     if (!mounted) return
 
@@ -162,20 +154,16 @@ export default function WatermarkingTool() {
     }
   }, [mounted, fullscreenImage, editingImageId, fullscreenVideoBlob, editingVideoId])
 
-  // Memoized handlers
   const handleFileUpload = useCallback(
     async (files: FileList) => {
       const newImages = await processFiles(files)
 
       if (newImages.length > 0) {
-        // Analyze brightness for the first image
         const fontMode = analyzeBrightness(newImages[0].image)
         setSettings((prev) => ({ ...prev, fontMode }))
 
-        // Add images first
         setImages((prev) => [...prev, ...newImages])
 
-        // Process canvases after a short delay to ensure state is updated
         setTimeout(() => {
           setImages((current) =>
             current.map((imageItem) => ({
@@ -189,16 +177,13 @@ export default function WatermarkingTool() {
     [processFiles, analyzeBrightness, processImage]
   )
 
-  // Also update the video upload handler:
   const handleVideoUpload = useCallback(
     async (files: FileList | File[]) => {
       const newVideos = await processVideos(files)
 
       if (newVideos.length > 0) {
-        // Add videos first
         setVideos((prev) => [...prev, ...newVideos])
 
-        // Process videos after a short delay
         setTimeout(async () => {
           const processedVideos = await Promise.all(
             newVideos.map(async (videoItem) => {
@@ -213,8 +198,7 @@ export default function WatermarkingTool() {
                   ...videoItem,
                   canvas: Promise.resolve(processedBlob),
                 }
-              } catch (error) {
-                console.error('Error processing video:', error)
+              } catch {
                 return {
                   ...videoItem,
                   canvas: Promise.resolve(new Blob([videoItem.file], { type: 'video/mp4' })),
@@ -325,12 +309,11 @@ export default function WatermarkingTool() {
       const blob = await canvasToBlob(imageItem.canvas)
       const filename = `watermarked-${imageItem.file.name.split('.')[0]}.png`
       await downloadBlob(blob, filename)
-    } catch (error) {
-      console.error('Download failed:', error)
+    } catch {
+      // Download failed
     }
   }, [])
 
-  // And update the downloadSingleVideo function:
   const downloadSingleVideo = useCallback(async (videoItem: VideoItem) => {
     if (!videoItem.canvas) return
 
@@ -342,8 +325,8 @@ export default function WatermarkingTool() {
 
       const filename = `watermarked-${videoItem.file.name.split('.')[0]}.mp4`
       await downloadBlob(blob, filename)
-    } catch (error) {
-      console.error('Download failed:', error)
+    } catch {
+      // Download failed
     }
   }, [])
 
@@ -353,7 +336,6 @@ export default function WatermarkingTool() {
     setIsDownloading(true)
 
     try {
-      // Lazy load JSZip only when needed
       const { default: JSZip } = await import('jszip')
       const zip = new JSZip()
 
@@ -378,8 +360,8 @@ export default function WatermarkingTool() {
       const zipBlob = await zip.generateAsync({ type: 'blob' })
       const filename = `imagemark-watermarked-${Date.now()}.zip`
       await downloadBlob(zipBlob, filename)
-    } catch (error) {
-      console.error('Zip download failed:', error)
+    } catch {
+      // Zip download failed
     } finally {
       setIsDownloading(false)
     }
@@ -394,12 +376,10 @@ export default function WatermarkingTool() {
       setSettings((prev) => {
         const newSettings = { ...prev, [key]: value }
 
-        // Clear preset selection if manually updating position
         if (key === 'positionX' || key === 'positionY') {
           newSettings.positionPreset = 'custom'
         }
 
-        // Set opacity to 100% when switching to image watermark type
         if (key === 'type' && value === 'image') {
           newSettings.opacity = 100
         }
@@ -425,11 +405,12 @@ export default function WatermarkingTool() {
     if (file) {
       createImageFromFile(file)
         .then(setWatermarkImage)
-        .catch((error) => console.error('Failed to load watermark image:', error))
+        .catch(() => {
+          // Failed to load watermark image
+        })
     }
   }, [])
 
-  // Fullscreen video handler:
   const openFullscreenVideo = useCallback((canvas: Promise<Blob>) => {
     setFullscreenVideoBlob(canvas)
   }, [])
@@ -457,7 +438,6 @@ export default function WatermarkingTool() {
               ...img,
               customSettings: isGlobalSettings ? undefined : newSettings,
             }
-            // Update canvas immediately
             updatedItem.canvas = processImage(updatedItem)
             return updatedItem
           }
@@ -478,7 +458,6 @@ export default function WatermarkingTool() {
               ...vid,
               customSettings: isGlobalSettings ? undefined : newSettings,
             }
-            // Update canvas immediately with new settings
             updatedItem.canvas = createVideoFromFile(updatedItem.file, newSettings, watermarkImage)
             return updatedItem
           }
@@ -500,7 +479,6 @@ export default function WatermarkingTool() {
   const togglePositionPresets = useCallback(() => {
     setShowPositionPresets((prev) => {
       const newValue = !prev
-      // If opening position presets, close advanced settings
       if (newValue) {
         setShowAdvancedSettings(false)
       }
@@ -511,7 +489,6 @@ export default function WatermarkingTool() {
   const toggleAdvancedSettings = useCallback(() => {
     setShowAdvancedSettings((prev) => {
       const newValue = !prev
-      // If opening advanced settings, close position presets
       if (newValue) {
         setShowPositionPresets(false)
       }
@@ -519,7 +496,6 @@ export default function WatermarkingTool() {
     })
   }, [])
 
-  // Loading state
   if (!mounted) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -528,7 +504,6 @@ export default function WatermarkingTool() {
     )
   }
 
-  // Results view - after images and videos are uploaded
   if (images.length > 0 || videos.length > 0) {
     return (
       <div className="min-h-screen bg-white">
@@ -644,9 +619,13 @@ export default function WatermarkingTool() {
     )
   }
 
-  // Landing page - before image or video upload
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
+      {/* Breadcrumbs */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <Breadcrumbs />
+      </div>
+
       {/* Hero section */}
       <main className="max-w-4xl mx-auto px-4 py-8 sm:py-16 text-center">
         <div className="mb-12">

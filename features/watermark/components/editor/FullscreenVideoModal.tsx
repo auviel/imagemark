@@ -27,8 +27,7 @@ export function FullscreenVideoModal({ videoBlob, onClose }: FullscreenVideoModa
           setVideoUrl(url)
         }
       })
-      .catch((error) => {
-        console.error('Error loading video:', error)
+      .catch(() => {
         setVideoUrl(null)
       })
 

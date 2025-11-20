@@ -17,8 +17,6 @@ export function ServiceWorkerRegistration() {
       navigator.serviceWorker
         .register('/sw.js')
         .then((registration) => {
-          console.log('Service Worker registered:', registration.scope)
-
           // Check for updates periodically
           setInterval(
             () => {
@@ -27,8 +25,8 @@ export function ServiceWorkerRegistration() {
             60 * 60 * 1000
           ) // Check every hour
         })
-        .catch((error) => {
-          console.warn('Service Worker registration failed:', error)
+        .catch(() => {
+          // Service Worker registration failed
         })
 
       // Handle service worker updates

@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { FEATURES } from '@/constants/features'
 import { Footer } from '@/components/layout'
-import { FAQ } from '@/components/common'
+import { FAQ, Breadcrumbs } from '@/components/common'
 import { FAQ_DATA } from '@/data/faq'
 import { UnifiedToolbar } from '@/components/layout'
 
@@ -21,6 +21,11 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
+      {/* Breadcrumbs */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <Breadcrumbs />
+      </div>
+
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
         <div className="text-center mb-16">

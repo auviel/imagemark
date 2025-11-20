@@ -44,8 +44,7 @@ export const VideoCanvas: React.FC<VideoCanvasProps> = React.memo(
 
           objectUrl = URL.createObjectURL(blob)
           setVideoUrl(objectUrl)
-        } catch (error) {
-          console.error('Error loading video:', error)
+        } catch {
           if (isMounted) {
             setError('Failed to load video')
           }

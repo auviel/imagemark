@@ -14,8 +14,8 @@ const STATIC_ASSETS = ['/', '/watermark', '/favicon.ico', '/site.webmanifest']
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch((error) => {
-        console.warn('Failed to cache some static assets:', error)
+      return cache.addAll(STATIC_ASSETS).catch(() => {
+        // Failed to cache some static assets
       })
     })
   )

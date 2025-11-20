@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Film, ArrowLeft, Plus, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { LoadingSpinner } from '@/components/common'
+import { LoadingSpinner, Breadcrumbs } from '@/components/common'
 import {
   VideoUploader,
   VideoProcessingCard,
@@ -49,8 +49,8 @@ export default function VideosPage() {
       const newVideos = await Promise.all(videoPromises)
 
       setVideos((prev) => [...prev, ...newVideos])
-    } catch (error) {
-      console.error('Error processing videos:', error)
+    } catch {
+      // Error processing videos
     } finally {
       setIsProcessing(false)
     }
@@ -101,9 +101,7 @@ export default function VideosPage() {
             v.id === id ? { ...v, status: 'completed', outputUrl, progress: 100 } : v
           )
         )
-      } catch (error) {
-        console.error('Error processing video:', error)
-
+      } catch {
         // Update with error status
         setVideos((prev) =>
           prev.map((v) =>
@@ -160,6 +158,11 @@ export default function VideosPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Breadcrumbs */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <Breadcrumbs />
+      </div>
+
       {/* Header */}
       <header className="border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-3 sm:py-4 flex items-center justify-between">
@@ -196,7 +199,6 @@ export default function VideosPage() {
               <Button
                 onClick={() => {
                   // Download all completed videos as ZIP
-                  console.log('Download all videos')
                 }}
                 disabled={!videos.some((v) => v.status === 'completed')}
                 className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-xs sm:text-sm px-3 sm:px-6 h-8 sm:h-9"
@@ -214,7 +216,9 @@ export default function VideosPage() {
         {videos.length === 0 ? (
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Add Watermarks to Videos</h2>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
+                Add Watermarks to Videos
+              </h1>
               <p className="text-gray-600">
                 Upload your videos and apply custom watermarks. Supports MP4, WebM, MOV, AVI, and
                 MKV formats.

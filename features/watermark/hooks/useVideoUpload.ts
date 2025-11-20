@@ -21,7 +21,6 @@ export const useVideoUpload = () => {
       })
 
       if (validFiles.length === 0) {
-        console.warn('No valid video files found')
         return []
       }
 
@@ -31,16 +30,14 @@ export const useVideoUpload = () => {
             id: `video-${Date.now()}-${index}`,
             file,
           }
-        } catch (error) {
-          console.error(`Error processing video file ${file.name}:`, error)
+        } catch {
           return null
         }
       })
 
       const results = await Promise.all(videoPromises)
       return results.filter((item): item is VideoItem => item !== null)
-    } catch (error) {
-      console.error('Error processing videos:', error)
+    } catch {
       return []
     } finally {
       setIsProcessingVideos(false)
