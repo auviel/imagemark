@@ -324,7 +324,10 @@ export class ShortPixelClient {
         body: formData,
       })
 
-      return this.parseOptimizeResponse(response)
+      return this.parseOptimizeResponse(response, {
+        isBackgroundRemoval: true,
+        compression,
+      })
     })
   }
 
@@ -656,6 +659,23 @@ export class ShortPixelClient {
                   ? result.JpgLosslessURL
                   : undefined
             }
+          } else if (targetFormat === 'png' || targetFormat === '+png') {
+            // ShortPixel returns PngLosslessURL and PngLossyURL for PNG conversions
+            const pngLossless = (result as any).PngLosslessURL
+            const pngLossy = (result as any).PngLossyURL
+            if (preferLossless) {
+              optimizedImageUrl = isValidUrl(pngLossless)
+                ? pngLossless
+                : isValidUrl(pngLossy)
+                  ? pngLossy
+                  : undefined
+            } else {
+              optimizedImageUrl = isValidUrl(pngLossy)
+                ? pngLossy
+                : isValidUrl(pngLossless)
+                  ? pngLossless
+                  : undefined
+            }
           }
         }
 
@@ -678,9 +698,12 @@ export class ShortPixelClient {
             AVIFLossyURL: result.AVIFLossyURL,
             JpgLosslessURL: result.JpgLosslessURL,
             JpgLossyURL: result.JpgLossyURL,
+            PngLosslessURL: (result as any).PngLosslessURL,
+            PngLossyURL: (result as any).PngLossyURL,
             SelectedURL: optimizedImageUrl,
             TargetFormat: context?.targetFormat,
             IsBackgroundRemoval: context?.isBackgroundRemoval,
+            Compression: context?.compression,
           })
 
           if (context?.isBackgroundRemoval && result.LosslessURL && !bgRemovedUrl) {
@@ -702,6 +725,7 @@ export class ShortPixelClient {
               avif: { lossless: result.AVIFLosslessURL, lossy: result.AVIFLossyURL },
               jpeg: { lossless: result.JpgLosslessURL, lossy: result.JpgLossyURL },
               jpg: { lossless: result.JpgLosslessURL, lossy: result.JpgLossyURL },
+              png: { lossless: (result as any).PngLosslessURL, lossy: (result as any).PngLossyURL },
             }
 
             const formatInfo = formatUrls[targetFormat]

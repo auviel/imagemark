@@ -12,9 +12,14 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('image') as File | null
+    const compression = (formData.get('compression') as string | null) || 'lossless'
 
     if (!file) {
       return validationErrorResponse('Image file is required')
+    }
+
+    if (compression !== 'lossless' && compression !== 'lossy') {
+      return validationErrorResponse('Invalid compression. Must be "lossless" or "lossy"')
     }
 
     const validation = await validateRequest(imageUploadSchema, {
@@ -25,7 +30,15 @@ export async function POST(request: NextRequest) {
       return validationErrorResponse(validation.error)
     }
 
-    const result = await removeBackground(file)
+    const result = await removeBackground(file, 'transparent', compression as 'lossless' | 'lossy')
+
+    if (result.status === 'pending') {
+      const { error } = handleError(
+        new Error('Image is still being processed. Please try again in a few seconds.'),
+        ErrorCodes.IMAGE_PROCESSING_ERROR
+      )
+      return errorResponse(error, 202, error.code) // 202 Accepted - processing
+    }
 
     if (result.status === 'error' || !result.optimizedImage) {
       const { error } = handleError(
@@ -47,12 +60,16 @@ export async function POST(request: NextRequest) {
       imageBlob = result.optimizedImage
     }
 
-    const arrayBuffer = await imageBlob.arrayBuffer()
+    const typedBlob = new Blob([imageBlob], { type: 'image/png' })
+
+    const arrayBuffer = await typedBlob.arrayBuffer()
     const base64 = Buffer.from(arrayBuffer).toString('base64')
-    const dataUrl = `data:${imageBlob.type};base64,${base64}`
+    const dataUrl = `data:image/png;base64,${base64}`
 
     return successResponse({
       processedImage: dataUrl,
+      processedImageUrl:
+        typeof result.optimizedImage === 'string' ? result.optimizedImage : undefined,
       originalSize: result.originalSize,
       processedSize: result.optimizedSize,
       compression: result.compression,

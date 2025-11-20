@@ -10,20 +10,22 @@
 
 'use client'
 
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Upload, Download, X, Crop, RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/common'
 import { EditorLayout } from '@/components/editor/EditorLayout'
 import { FeatureSidebar } from '@/components/editor/FeatureSidebar'
-import { ConvertSettings } from '@/components/editor/feature-settings/ConvertSettings'
+import { ConvertSettings, RemoveBackgroundSettings } from '@/components/editor/feature-settings'
 import { RotateFlipModal } from '@/components/editor/RotateFlipModal'
 import type { Feature } from '@/constants/features'
 import type { EditorImage, AppliedFeature } from '@/lib/editor/types'
 import { processEditorImage } from '@/lib/editor/feature-pipeline'
 import { FEATURES } from '@/constants/features'
 
-export default function EditorPage() {
+function EditorPageContent() {
+  const searchParams = useSearchParams()
   const [mounted, setMounted] = useState(false)
   const [images, setImages] = useState<EditorImage[]>([])
   const [activeFeature, setActiveFeature] = useState<Feature | null>(null)
@@ -63,6 +65,54 @@ export default function EditorPage() {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    const featureParam = searchParams.get('feature')
+    if (featureParam && !activeFeature) {
+      const featureIdMap: Record<string, string> = {
+        convert: 'convert',
+        'remove-background': 'background-removal',
+        'background-removal': 'background-removal',
+      }
+      const featureId = featureIdMap[featureParam] || featureParam
+      const feature = FEATURES.find((f) => f.id === featureId)
+      if (feature && feature.enabled) {
+        setActiveFeature(feature)
+        setMobileSheetOpen(true)
+      }
+    }
+  }, [searchParams, activeFeature])
+
+  useEffect(() => {
+    if (!mounted || images.length > 0) return
+
+    const pendingFilesData = sessionStorage.getItem('editor_pending_files')
+    if (pendingFilesData) {
+      try {
+        const fileDataArray: Array<{ name: string; type: string; dataUrl: string }> =
+          JSON.parse(pendingFilesData)
+
+        const loadedFiles: File[] = fileDataArray.map((fileData) => {
+          const base64Data = fileData.dataUrl.split(',')[1]
+          const binaryString = atob(base64Data)
+          const bytes = new Uint8Array(binaryString.length)
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i)
+          }
+          const blob = new Blob([bytes], { type: fileData.type })
+          return new File([blob], fileData.name, { type: fileData.type })
+        })
+
+        if (loadedFiles.length > 0) {
+          handleFiles(loadedFiles)
+          sessionStorage.removeItem('editor_pending_files')
+        }
+      } catch (error) {
+        console.error('Failed to load pending files:', error)
+        sessionStorage.removeItem('editor_pending_files')
+      }
+    }
+  }, [mounted, images.length, handleFiles])
 
   useEffect(() => {
     const handlePaste = async (e: ClipboardEvent) => {
@@ -149,6 +199,15 @@ export default function EditorPage() {
           body: formData,
         })
 
+        // Handle 202 Accepted (pending processing)
+        if (response.status === 202) {
+          const errorData = await response.json()
+          throw new Error(
+            errorData.error?.message ||
+              'Image is still being processed. Please try again in a few seconds.'
+          )
+        }
+
         if (!response.ok) {
           const errorData = await response.json()
           throw new Error(errorData.error?.message || 'Format conversion failed')
@@ -185,7 +244,139 @@ export default function EditorPage() {
               ? {
                   ...img,
                   processedUrl: blobUrl,
-                  processedImageUrl: directUrl || null, // Store direct URL for downloads
+                  processedImageUrl: directUrl || null,
+                  status: 'completed',
+                }
+              : img
+          )
+        )
+      } catch (error) {
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === image.id
+              ? {
+                  ...img,
+                  status: 'error',
+                  errorMessage: error instanceof Error ? error.message : 'Processing failed',
+                }
+              : img
+          )
+        )
+      }
+    },
+    []
+  )
+
+  const processRemoveBackground = useCallback(
+    async (image: EditorImage, compression: 'lossless' | 'lossy' = 'lossless') => {
+      try {
+        const isPng = image.originalFile.type === 'image/png'
+        let imageToProcess: File = image.originalFile
+
+        if (!isPng) {
+          const convertFormData = new FormData()
+          convertFormData.append('image', image.originalFile)
+          convertFormData.append('format', 'png')
+          convertFormData.append('compression', 'lossless')
+
+          const convertResponse = await fetch('/api/v1/image/convert', {
+            method: 'POST',
+            body: convertFormData,
+          })
+
+          if (convertResponse.status === 202) {
+            const errorData = await convertResponse.json()
+            throw new Error(
+              errorData.error?.message ||
+                'PNG conversion is still processing. Please try again in a few seconds.'
+            )
+          }
+
+          if (!convertResponse.ok) {
+            const errorData = await convertResponse.json()
+            throw new Error(errorData.error?.message || 'PNG conversion failed')
+          }
+
+          const convertData = await convertResponse.json()
+
+          if (!convertData.success || !convertData.data?.convertedImage) {
+            throw new Error('Invalid response from PNG conversion')
+          }
+
+          const dataUrl = convertData.data.convertedImage
+          const base64Match = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
+          if (!base64Match) {
+            throw new Error('Invalid data URL format')
+          }
+
+          const base64Data = base64Match[2]
+          const binaryString = atob(base64Data)
+          const bytes = new Uint8Array(binaryString.length)
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i)
+          }
+
+          const pngBlob = new Blob([bytes], { type: 'image/png' })
+          const fileName = image.originalFile.name.replace(/\.[^/.]+$/, '') + '.png'
+          imageToProcess = new File([pngBlob], fileName, { type: 'image/png' })
+        }
+
+        const formData = new FormData()
+        formData.append('image', imageToProcess)
+        formData.append('compression', compression)
+
+        const response = await fetch('/api/v1/image/remove-background', {
+          method: 'POST',
+          body: formData,
+        })
+
+        // Handle 202 Accepted (pending processing)
+        if (response.status === 202) {
+          const errorData = await response.json()
+          throw new Error(
+            errorData.error?.message ||
+              'Background removal is still processing. Please try again in a few seconds.'
+          )
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error?.message || 'Background removal failed')
+        }
+
+        const data = await response.json()
+
+        if (!data.success || !data.data?.processedImage) {
+          throw new Error('Invalid response from server')
+        }
+
+        const dataUrl = data.data.processedImage
+        const directUrl = data.data.processedImageUrl
+
+        const base64Match = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
+        if (!base64Match) {
+          throw new Error('Invalid data URL format')
+        }
+
+        const mimeType = base64Match[1]
+        const base64Data = base64Match[2]
+
+        const binaryString = atob(base64Data)
+        const bytes = new Uint8Array(binaryString.length)
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i)
+        }
+
+        const processedBlob = new Blob([bytes], { type: mimeType })
+        const blobUrl = URL.createObjectURL(processedBlob)
+
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === image.id
+              ? {
+                  ...img,
+                  processedUrl: blobUrl,
+                  processedImageUrl: directUrl || null,
                   status: 'completed',
                 }
               : img
@@ -250,9 +441,19 @@ export default function EditorPage() {
         })
       }
 
+      if (feature.id === 'background-removal') {
+        setImages((currentImages) => {
+          const compression = (settings.compression as 'lossless' | 'lossy') || 'lossless'
+          currentImages.forEach((img) => {
+            processRemoveBackground(img, compression)
+          })
+          return currentImages
+        })
+      }
+
       setActiveFeature(null)
     },
-    [processConvertImage]
+    [processConvertImage, processRemoveBackground]
   )
 
   const currentFormat = useMemo(() => {
@@ -287,11 +488,18 @@ export default function EditorPage() {
 
   const sidebarContent = activeFeature ? (
     <div className="p-4">
-      {activeFeature && activeFeature.id === 'convert' ? (
+      {activeFeature.id === 'convert' ? (
         <ConvertSettings
           currentFormat={currentFormat}
           onApply={(targetFormat, compression) => {
             handleApplyFeature(activeFeature, { format: targetFormat, compression })
+          }}
+          isProcessing={images.some((img) => img.status === 'processing')}
+        />
+      ) : activeFeature.id === 'background-removal' ? (
+        <RemoveBackgroundSettings
+          onApply={(compression) => {
+            handleApplyFeature(activeFeature, { compression })
           }}
           isProcessing={images.some((img) => img.status === 'processing')}
         />
@@ -300,7 +508,6 @@ export default function EditorPage() {
           <p className="text-sm text-gray-600">
             Configure {activeFeature.name} settings. This feature will be applied to all images.
           </p>
-          {/* TODO: Render feature-specific settings component for other features */}
           <Button
             onClick={() => {
               handleApplyFeature(activeFeature, {})
@@ -394,8 +601,15 @@ export default function EditorPage() {
                     const convertFeature = image.appliedFeatures.find(
                       (f) => f.featureId === 'convert'
                     )
-                    const targetFormat = convertFeature?.settings?.format || 'png'
-                    const extension = targetFormat === 'jpg' ? 'jpeg' : targetFormat
+                    const removeBgFeature = image.appliedFeatures.find(
+                      (f) => f.featureId === 'remove-background'
+                    )
+
+                    let extension = 'png'
+                    if (convertFeature && !removeBgFeature) {
+                      const targetFormat = convertFeature.settings?.format || 'png'
+                      extension = targetFormat === 'jpg' ? 'jpeg' : targetFormat
+                    }
 
                     const originalName = image.originalFile.name.replace(/\.[^/.]+$/, '')
                     zip.file(`${originalName}.${extension}`, blob)
@@ -556,8 +770,15 @@ export default function EditorPage() {
                             const convertFeature = image.appliedFeatures.find(
                               (f) => f.featureId === 'convert'
                             )
-                            const targetFormat = convertFeature?.settings?.format || 'png'
-                            const extension = targetFormat === 'jpg' ? 'jpeg' : targetFormat
+                            const removeBgFeature = image.appliedFeatures.find(
+                              (f) => f.featureId === 'background-removal'
+                            )
+
+                            let extension = 'png'
+                            if (convertFeature && !removeBgFeature) {
+                              const targetFormat = convertFeature.settings?.format || 'png'
+                              extension = targetFormat === 'jpg' ? 'jpeg' : targetFormat
+                            }
 
                             let downloadUrl: string
 
@@ -687,5 +908,19 @@ export default function EditorPage() {
         />
       )}
     </EditorLayout>
+  )
+}
+
+export default function EditorPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <LoadingSpinner size="lg" />
+        </div>
+      }
+    >
+      <EditorPageContent />
+    </Suspense>
   )
 }
