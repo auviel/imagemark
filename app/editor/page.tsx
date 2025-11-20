@@ -27,7 +27,7 @@ import type { Feature } from '@/constants/features'
 import type { EditorImage, AppliedFeature } from '@/lib/editor/types'
 import { processEditorImage } from '@/lib/editor/feature-pipeline'
 import { FEATURES } from '@/constants/features'
-import type { WatermarkSettings } from '@/features/watermark/types'
+import type { WatermarkSettings as WatermarkSettingsType } from '@/features/watermark/types'
 import { drawWatermarkOnCanvas, canvasToBlob } from '@/features/watermark/utils'
 
 function EditorPageContent() {
@@ -278,15 +278,13 @@ function EditorPageContent() {
   const processWatermark = useCallback(
     async (
       image: EditorImage,
-      settings: WatermarkSettings,
+      settings: WatermarkSettingsType,
       watermarkImage: HTMLImageElement | null
     ) => {
       try {
-        // Load the image from the original file or processed URL
         const img = new Image()
         img.crossOrigin = 'anonymous'
 
-        // Use processed URL if available, otherwise use original
         const imageUrl = image.processedUrl || image.originalUrl
         img.src = imageUrl
 
@@ -295,11 +293,9 @@ function EditorPageContent() {
           img.onerror = () => reject(new Error('Failed to load image'))
         })
 
-        // Create canvas and apply watermark
         const canvas = document.createElement('canvas')
         drawWatermarkOnCanvas(img, canvas, settings, watermarkImage)
 
-        // Convert canvas to blob
         const blob = await canvasToBlob(canvas)
         const blobUrl = URL.createObjectURL(blob)
 
@@ -470,8 +466,6 @@ function EditorPageContent() {
 
       setImages((prev) =>
         prev.map((img) => {
-          // For watermark, always add a new feature (don't replace)
-          // For other features, replace if exists
           const existingFeature =
             feature.id === 'watermark'
               ? null
@@ -524,7 +518,7 @@ function EditorPageContent() {
 
       if (feature.id === 'watermark') {
         setImages((currentImages) => {
-          const watermarkSettings = settings.watermarkSettings as WatermarkSettings
+          const watermarkSettings = settings.watermarkSettings as WatermarkSettingsType
           const watermarkImage = settings.watermarkImage as HTMLImageElement | null
           currentImages.forEach((img) => {
             processWatermark(img, watermarkSettings, watermarkImage)
@@ -599,7 +593,6 @@ function EditorPageContent() {
             })
           }}
           onUpdate={(watermarkId, watermarkSettings, watermarkImage) => {
-            // Update existing watermark
             // watermarkId format: "imageId::order"
             const [imageId, orderStr] = watermarkId.split('::')
             const order = parseInt(orderStr, 10)
@@ -607,7 +600,6 @@ function EditorPageContent() {
             setImages((prev) =>
               prev.map((img) => {
                 if (img.id === imageId) {
-                  // Find and update the watermark feature with this order
                   const updatedFeatures = img.appliedFeatures.map((f) => {
                     if (f.featureId === 'watermark' && f.order === order) {
                       return {
@@ -631,7 +623,6 @@ function EditorPageContent() {
               })
             )
 
-            // Reprocess the image with updated watermark
             setTimeout(() => {
               const image = images.find((img) => img.id === imageId)
               if (image) {
@@ -653,7 +644,6 @@ function EditorPageContent() {
             }, 0)
           }}
           onRemove={(watermarkId) => {
-            // Remove specific watermark instance
             // watermarkId format: "imageId::order"
             const [imageId, orderStr] = watermarkId.split('::')
             const order = parseInt(orderStr, 10)
@@ -661,65 +651,45 @@ function EditorPageContent() {
             setImages((prev) => {
               const updatedImages = prev.map((img) => {
                 if (img.id === imageId) {
-                  // Remove the watermark feature with this specific order
                   const updatedFeatures = img.appliedFeatures.filter(
                     (f) => !(f.featureId === 'watermark' && f.order === order)
                   )
                   return {
                     ...img,
                     appliedFeatures: updatedFeatures,
-                    status: 'processing',
+                    status: 'processing' as const,
                   }
                 }
                 return img
               })
 
-              // Reprocess images without watermark
               updatedImages.forEach((img) => {
                 if (img.status === 'processing') {
                   const updatedFeatures = img.appliedFeatures
                   if (updatedFeatures.length > 0) {
-                    // Reapply remaining features
-                    processEditorImage(img.originalFile, updatedFeatures)
-                      .then((result) => {
-                        const blobUrl = URL.createObjectURL(result)
-                        setImages((prev) =>
-                          prev.map((i) =>
-                            i.id === img.id
-                              ? {
-                                  ...i,
-                                  processedUrl: blobUrl,
-                                  status: 'completed',
-                                  appliedFeatures: updatedFeatures,
-                                }
-                              : i
-                          )
-                        )
-                      })
-                      .catch((error) => {
-                        console.error('Failed to reprocess image:', error)
-                        setImages((prev) =>
-                          prev.map((i) =>
-                            i.id === img.id
-                              ? {
-                                  ...i,
-                                  status: 'error',
-                                  errorMessage:
-                                    error instanceof Error ? error.message : 'Processing failed',
-                                }
-                              : i
-                          )
-                        )
-                      })
+                    // Reprocess image with remaining features
+                    // For now, just mark as needing reprocessing - watermark removal
+                    // will trigger a client-side reprocess if needed
+                    setImages((prev) =>
+                      prev.map((i) =>
+                        i.id === img.id
+                          ? {
+                              ...i,
+                              status: 'idle' as const,
+                              processedUrl: null,
+                              appliedFeatures: updatedFeatures,
+                            }
+                          : i
+                      )
+                    )
                   } else {
-                    // No features left, revert to original
                     setImages((prev) =>
                       prev.map((i) =>
                         i.id === img.id
                           ? {
                               ...i,
                               processedUrl: null,
-                              status: 'idle',
+                              status: 'idle' as const,
                               appliedFeatures: [],
                             }
                           : i
@@ -768,7 +738,6 @@ function EditorPageContent() {
       isSettingsView={!!activeFeature}
       onBack={() => {
         setActiveFeature(null)
-        // Clear the feature parameter from URL when going back
         const currentParams = new URLSearchParams(searchParams.toString())
         currentParams.delete('feature')
         currentParams.delete('from')
@@ -852,12 +821,10 @@ function EditorPageContent() {
                     )
 
                     let extension = 'png'
-                    // Watermark always outputs PNG, but if convert was applied, use that format
                     if (convertFeature && !removeBgFeature && !watermarkFeature) {
                       const targetFormat = convertFeature.settings?.format || 'png'
                       extension = targetFormat === 'jpg' ? 'jpeg' : targetFormat
                     } else if (watermarkFeature) {
-                      // Watermark outputs PNG
                       extension = 'png'
                     }
 
@@ -1028,12 +995,10 @@ function EditorPageContent() {
                             )
 
                             let extension = 'png'
-                            // Watermark always outputs PNG, but if convert was applied, use that format
                             if (convertFeature && !removeBgFeature && !watermarkFeature) {
                               const targetFormat = convertFeature.settings?.format || 'png'
                               extension = targetFormat === 'jpg' ? 'jpeg' : targetFormat
                             } else if (watermarkFeature) {
-                              // Watermark outputs PNG
                               extension = 'png'
                             }
 
