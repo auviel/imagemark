@@ -1,5 +1,10 @@
 import type { NextConfig } from "next"
 
+// Bundle analyzer
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+})
+
 // Security headers configuration
 const securityHeaders = [
   {
@@ -55,10 +60,15 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  // Image optimization - will enable later in Phase 3
-  // For now, keeping unoptimized to avoid breaking changes
+  // Image optimization - enabled for better performance
   images: {
-    unoptimized: true,
+    unoptimized: false,
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    minimumCacheTTL: 60,
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   // Ensure static files are properly served
   trailingSlash: false,
@@ -125,4 +135,4 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default nextConfig
+export default withBundleAnalyzer(nextConfig)

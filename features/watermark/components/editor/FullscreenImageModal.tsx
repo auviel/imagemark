@@ -2,6 +2,7 @@
 
 import type React from 'react'
 import { X } from 'lucide-react'
+import Image from 'next/image'
 
 interface FullscreenImageModalProps {
   imageUrl: string | null
@@ -10,6 +11,9 @@ interface FullscreenImageModalProps {
 
 export function FullscreenImageModal({ imageUrl, onClose }: FullscreenImageModalProps) {
   if (!imageUrl) return null
+
+  // Check if URL is a blob or data URL (can't be optimized)
+  const isBlobOrDataUrl = imageUrl.startsWith('blob:') || imageUrl.startsWith('data:')
 
   return (
     <div
@@ -24,12 +28,26 @@ export function FullscreenImageModal({ imageUrl, onClose }: FullscreenImageModal
         >
           <X className="w-6 h-6" />
         </button>
-        <img
-          src={imageUrl || '/placeholder.svg'}
-          alt="Fullscreen preview"
-          className="max-w-full max-h-full object-contain"
-          onClick={(e) => e.stopPropagation()}
-        />
+        <div className="relative w-full h-full max-w-[90vw] max-h-[90vh]">
+          {isBlobOrDataUrl ? (
+            <img
+              src={imageUrl}
+              alt="Fullscreen preview"
+              className="max-w-full max-h-full object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <Image
+              src={imageUrl}
+              alt="Fullscreen preview"
+              fill
+              className="object-contain"
+              onClick={(e) => e.stopPropagation()}
+              priority
+              sizes="90vw"
+            />
+          )}
+        </div>
       </div>
     </div>
   )

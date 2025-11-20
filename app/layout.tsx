@@ -6,6 +6,7 @@ import { Analytics } from '@vercel/analytics/react'
 import { Suspense } from 'react'
 import { Navigation } from '@/components/layout'
 import { ErrorBoundary } from '@/components/error/ErrorBoundary'
+import { ServiceWorkerRegistration } from '@/components/common/ServiceWorkerRegistration'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -154,6 +155,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Suspense>{children}</Suspense>
         </ErrorBoundary>
         <Analytics />
+        <ServiceWorkerRegistration />
       </body>
     </html>
   )

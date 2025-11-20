@@ -1,25 +1,17 @@
 {
-  "name": "ImageMark - Free Online Watermark Tool",
+  "name": "ImageMark - Free Image Processing Suite",
   "short_name": "ImageMark",
-  "description": "Add watermarks to your images for free. Batch processing, text & logo watermarks, instant download.",
+  "description": "All-in-one image processing tools: watermark, optimize, convert, resize, and more",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#0D9488",
+  "theme_color": "#0d9488",
   "orientation": "portrait-primary",
-  "scope": "/",
-  "lang": "en",
-  "categories": ["photo", "productivity", "utilities"],
   "icons": [
     {
-      "src": "/favicon-16x16.png",
-      "sizes": "16x16",
-      "type": "image/png"
-    },
-    {
-      "src": "/favicon-32x32.png",
-      "sizes": "32x32",
-      "type": "image/png"
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
     },
     {
       "src": "/android-chrome-192x192.png",
@@ -38,5 +30,37 @@
       "sizes": "180x180",
       "type": "image/png"
     }
-  ]
+  ],
+  "categories": ["productivity", "utilities", "photo"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Watermark Tool",
+      "short_name": "Watermark",
+      "description": "Add watermarks to images and videos",
+      "url": "/watermark",
+      "icons": [
+        {
+          "src": "/favicon.ico",
+          "sizes": "any"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "/watermark",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "image",
+          "accept": ["image/*", "video/*"]
+        }
+      ]
+    }
+  }
 }
