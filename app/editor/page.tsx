@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/common'
 import { EditorLayout } from '@/components/editor/EditorLayout'
 import { FeatureSidebar } from '@/components/editor/FeatureSidebar'
+import { useIsMobile } from '@/hooks/use-mobile'
 import {
   ConvertSettings,
   RemoveBackgroundSettings,
@@ -33,6 +34,7 @@ import { drawWatermarkOnCanvas, canvasToBlob } from '@/features/watermark/utils'
 function EditorPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const isMobile = useIsMobile()
   const [mounted, setMounted] = useState(false)
   const [images, setImages] = useState<EditorImage[]>([])
   const [activeFeature, setActiveFeature] = useState<Feature | null>(null)
@@ -529,8 +531,12 @@ function EditorPageContent() {
       }
 
       setActiveFeature(null)
+
+      if (isMobile) {
+        setMobileSheetOpen(false)
+      }
     },
-    [processConvertImage, processRemoveBackground, processWatermark]
+    [processConvertImage, processRemoveBackground, processWatermark, isMobile]
   )
 
   const currentFormat = useMemo(() => {
