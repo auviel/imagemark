@@ -48,11 +48,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       error,
       errorInfo,
     })
-
-    // TODO: Send to error tracking service (e.g., Sentry)
-    // if (typeof window !== 'undefined' && window.Sentry) {
-    //   window.Sentry.captureException(error, { contexts: { react: errorInfo } })
-    // }
   }
 
   handleReset = (): void => {

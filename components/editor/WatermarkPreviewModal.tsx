@@ -8,18 +8,12 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { X, RotateCw, ZoomIn, ZoomOut, Upload, Hand } from 'lucide-react'
+import { X, RotateCw, ZoomIn, ZoomOut, Upload, Hand, Type, Eye, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { WatermarkSettings } from '@/features/watermark/types'
 import { FONT_OPTIONS } from '@/features/watermark/constants'
 import { createImageFromFile } from '@/features/watermark/utils'
@@ -62,6 +56,12 @@ export function WatermarkPreviewModal({
   const watermarkFileInputRef = useRef<HTMLInputElement>(null)
   const isMobile = useIsMobile()
   const [showTip, setShowTip] = useState(false)
+  const [fontPopoverOpen, setFontPopoverOpen] = useState(false)
+  const [rotatePopoverOpen, setRotatePopoverOpen] = useState(false)
+  const [sizePopoverOpen, setSizePopoverOpen] = useState(false)
+  const [opacityPopoverOpen, setOpacityPopoverOpen] = useState(false)
+  const [colorPopoverOpen, setColorPopoverOpen] = useState(false)
+  const [isDraggingOver, setIsDraggingOver] = useState(false)
 
   // Check if user has seen the tip before
   useEffect(() => {
@@ -84,6 +84,68 @@ export function WatermarkPreviewModal({
     setShowTip(false)
     localStorage.setItem('watermark-tip-dismissed', 'true')
   }
+
+  // Handle watermark image file processing
+  const handleWatermarkImageFile = useCallback(
+    async (file: File) => {
+      if (!onWatermarkImageChange) return
+
+      try {
+        // Create image without cleanup for watermark (we need to keep the blob URL)
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+
+        const imageUrl = URL.createObjectURL(file)
+        img.src = imageUrl
+
+        // Wait for image to load
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => {
+            resolve()
+          }
+          img.onerror = () => {
+            URL.revokeObjectURL(imageUrl)
+            reject(new Error('Failed to load watermark image'))
+          }
+        })
+
+        // Store the blob URL on the image so we can clean it up later if needed
+        ;(img as any)._blobUrl = imageUrl
+
+        onWatermarkImageChange(img)
+      } catch (error) {
+        alert('Failed to load watermark image. Please try again.')
+      }
+    },
+    [onWatermarkImageChange]
+  )
+
+  // Drag and drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingOver(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingOver(false)
+  }, [])
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setIsDraggingOver(false)
+
+      const file = e.dataTransfer.files?.[0]
+      if (file && file.type.startsWith('image/')) {
+        await handleWatermarkImageFile(file)
+      }
+    },
+    [handleWatermarkImageFile]
+  )
 
   // Cleanup blob URLs on unmount or when watermark image changes
   useEffect(() => {
@@ -470,133 +532,180 @@ export function WatermarkPreviewModal({
               <>
                 <div>
                   <Label className="text-sm font-medium text-gray-700 mb-2 block">Text</Label>
-                  <Input
-                    value={settings.text}
-                    onChange={(e) =>
-                      onSettingsChange({
-                        ...settings,
-                        text: e.target.value,
-                      })
-                    }
-                    placeholder="Enter watermark text"
-                    className="w-full"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Font</Label>
-                  <Select
-                    value={settings.font}
-                    onValueChange={(value) =>
-                      onSettingsChange({
-                        ...settings,
-                        font: value,
-                      })
-                    }
-                  >
-                    <SelectTrigger className="w-full bg-white border-2 border-gray-200 hover:border-teal-300 focus:border-teal-500">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border-2 border-gray-200 max-h-60">
-                      {FONT_OPTIONS.map((fontOption) => (
-                        <SelectItem
-                          key={fontOption.name}
-                          value={fontOption.name}
-                          className="hover:bg-teal-50 focus:bg-teal-50 cursor-pointer"
+                  <div className="relative">
+                    <Input
+                      value={settings.text}
+                      onChange={(e) =>
+                        onSettingsChange({
+                          ...settings,
+                          text: e.target.value,
+                        })
+                      }
+                      placeholder="Enter watermark text"
+                      className="w-full pr-12"
+                    />
+                    <Popover open={fontPopoverOpen} onOpenChange={setFontPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 border-2 border-gray-300 hover:border-teal-500 hover:bg-teal-50"
+                          title="Select font"
                         >
-                          {fontOption.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Color Mode</Label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onSettingsChange({
-                          ...settings,
-                          fontMode: 'light',
-                        })
-                      }
-                      className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                        settings.fontMode === 'light'
-                          ? 'bg-teal-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      Light
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onSettingsChange({
-                          ...settings,
-                          fontMode: 'dark',
-                        })
-                      }
-                      className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                        settings.fontMode === 'dark'
-                          ? 'bg-teal-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      Dark
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onSettingsChange({
-                          ...settings,
-                          fontMode: 'custom',
-                        })
-                      }
-                      className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                        settings.fontMode === 'custom'
-                          ? 'bg-teal-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      Custom
-                    </button>
+                          <Type className="w-4 h-4 text-gray-600" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-2 bg-white border-2 border-gray-200">
+                        <div className="max-h-60 overflow-y-auto space-y-1">
+                          {FONT_OPTIONS.map((fontOption) => (
+                            <button
+                              key={fontOption.name}
+                              type="button"
+                              onClick={() => {
+                                onSettingsChange({
+                                  ...settings,
+                                  font: fontOption.name,
+                                })
+                                setFontPopoverOpen(false)
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                                settings.font === fontOption.name
+                                  ? 'bg-teal-600 text-white'
+                                  : 'hover:bg-teal-50 text-gray-700'
+                              }`}
+                              style={{
+                                fontFamily: fontOption.name,
+                              }}
+                            >
+                              {fontOption.name}
+                            </button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
 
-                {settings.fontMode === 'custom' && (
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                      Custom Color
-                    </Label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="color"
-                        value={settings.customColor}
-                        onChange={(e) =>
-                          onSettingsChange({
-                            ...settings,
-                            customColor: e.target.value,
-                          })
-                        }
-                        className="w-16 h-10 p-1 border-2 border-gray-200 rounded"
-                      />
-                      <Input
-                        type="text"
-                        value={settings.customColor}
-                        onChange={(e) =>
-                          onSettingsChange({
-                            ...settings,
-                            customColor: e.target.value,
-                          })
-                        }
-                        placeholder="#ffffff"
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                )}
+                {/* Color Mode Control */}
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium text-gray-700 flex-1">Color</Label>
+                  <Popover open={colorPopoverOpen} onOpenChange={setColorPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9 w-24 border-2 border-gray-300 hover:border-teal-500 hover:bg-teal-50 flex items-center gap-1.5"
+                        title="Select color mode"
+                      >
+                        <div
+                          className="w-4 h-4 rounded border border-gray-300"
+                          style={{
+                            backgroundColor:
+                              settings.fontMode === 'light'
+                                ? '#D1D5DB'
+                                : settings.fontMode === 'dark'
+                                  ? '#374151'
+                                  : settings.customColor,
+                          }}
+                        />
+                        <span className="text-sm text-gray-700 capitalize">
+                          {settings.fontMode === 'custom' ? 'Custom' : settings.fontMode}
+                        </span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-4 bg-white border-2 border-gray-200">
+                      <div className="space-y-4">
+                        <Label className="text-sm font-medium text-gray-700 block">
+                          Color Mode
+                        </Label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onSettingsChange({
+                                ...settings,
+                                fontMode: 'light',
+                              })
+                            }
+                            className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                              settings.fontMode === 'light'
+                                ? 'bg-teal-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            Light
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onSettingsChange({
+                                ...settings,
+                                fontMode: 'dark',
+                              })
+                            }
+                            className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                              settings.fontMode === 'dark'
+                                ? 'bg-teal-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            Dark
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onSettingsChange({
+                                ...settings,
+                                fontMode: 'custom',
+                              })
+                            }
+                            className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                              settings.fontMode === 'custom'
+                                ? 'bg-teal-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            Custom
+                          </button>
+                        </div>
+                        {settings.fontMode === 'custom' && (
+                          <div className="space-y-2 pt-2 border-t border-gray-200">
+                            <Label className="text-sm font-medium text-gray-700 block">
+                              Custom Color
+                            </Label>
+                            <div className="flex gap-2">
+                              <Input
+                                type="color"
+                                value={settings.customColor}
+                                onChange={(e) =>
+                                  onSettingsChange({
+                                    ...settings,
+                                    customColor: e.target.value,
+                                  })
+                                }
+                                className="w-16 h-10 p-1 border-2 border-gray-200 rounded"
+                              />
+                              <Input
+                                type="text"
+                                value={settings.customColor}
+                                onChange={(e) =>
+                                  onSettingsChange({
+                                    ...settings,
+                                    customColor: e.target.value,
+                                  })
+                                }
+                                placeholder="#ffffff"
+                                className="flex-1"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </>
             )}
 
@@ -606,33 +715,70 @@ export function WatermarkPreviewModal({
                 <Label className="text-sm font-medium text-gray-700 mb-2 block">
                   Watermark Image
                 </Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => watermarkFileInputRef.current?.click()}
-                    className="flex-1"
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    {watermarkImage ? 'Change Image' : 'Upload Image'}
-                  </Button>
-                  {watermarkImage && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        // Clean up blob URL if it exists
-                        if ((watermarkImage as any)._blobUrl) {
-                          URL.revokeObjectURL((watermarkImage as any)._blobUrl)
-                        }
-                        if (onWatermarkImageChange) {
-                          onWatermarkImageChange(null)
-                        }
-                      }}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      Remove
-                    </Button>
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => watermarkFileInputRef.current?.click()}
+                  className={`
+                    relative border-2 border-dashed rounded-lg p-6 transition-all cursor-pointer
+                    ${
+                      isDraggingOver
+                        ? 'border-teal-500 bg-teal-50'
+                        : watermarkImage
+                          ? 'border-gray-300 bg-gray-50 hover:border-teal-400 hover:bg-teal-50/50'
+                          : 'border-gray-300 bg-white hover:border-teal-400 hover:bg-teal-50/50'
+                    }
+                  `}
+                >
+                  {watermarkImage ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="relative w-full">
+                        <img
+                          src={watermarkImage.src}
+                          alt="Watermark preview"
+                          className="max-h-32 mx-auto rounded object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            // Clean up blob URL if it exists
+                            if ((watermarkImage as any)._blobUrl) {
+                              URL.revokeObjectURL((watermarkImage as any)._blobUrl)
+                            }
+                            if (onWatermarkImageChange) {
+                              onWatermarkImageChange(null)
+                            }
+                          }}
+                          className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                          title="Remove image"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <p className="text-sm text-gray-600">Click to change image</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-3">
+                      <div
+                        className={`rounded-full p-3 ${
+                          isDraggingOver ? 'bg-teal-100' : 'bg-gray-100'
+                        }`}
+                      >
+                        <Upload
+                          className={`w-6 h-6 ${
+                            isDraggingOver ? 'text-teal-600' : 'text-gray-400'
+                          }`}
+                        />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-gray-700">
+                          {isDraggingOver ? 'Drop image here' : 'Drag & drop or click to upload'}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">Supports PNG, JPG, GIF, WebP</p>
+                      </div>
+                    </div>
                   )}
                 </div>
                 <input
@@ -641,174 +787,212 @@ export function WatermarkPreviewModal({
                   accept="image/*"
                   onChange={async (e) => {
                     const file = e.target.files?.[0]
-                    if (file && onWatermarkImageChange) {
-                      try {
-                        // Create image without cleanup for watermark (we need to keep the blob URL)
-                        const img = new Image()
-                        img.crossOrigin = 'anonymous'
-
-                        const imageUrl = URL.createObjectURL(file)
-                        img.src = imageUrl
-
-                        // Wait for image to load
-                        await new Promise<void>((resolve, reject) => {
-                          img.onload = () => {
-                            resolve()
-                          }
-                          img.onerror = () => {
-                            URL.revokeObjectURL(imageUrl)
-                            reject(new Error('Failed to load watermark image'))
-                          }
-                        })
-
-                        // Store the blob URL on the image so we can clean it up later if needed
-                        ;(img as any)._blobUrl = imageUrl
-
-                        onWatermarkImageChange(img)
-                      } catch (error) {
-                        alert('Failed to load watermark image. Please try again.')
-                      }
+                    if (file) {
+                      await handleWatermarkImageFile(file)
                     }
                     // Reset input to allow selecting the same file again
                     e.target.value = ''
                   }}
                   className="hidden"
                 />
-                {watermarkImage && (
-                  <div className="mt-2 p-2 border border-gray-200 rounded-md">
-                    <img
-                      src={watermarkImage.src}
-                      alt="Watermark preview"
-                      className="max-h-20 mx-auto"
+              </div>
+            )}
+
+            {/* Rotation Control */}
+            <div className="flex items-center gap-2">
+              <Label className="text-sm font-medium text-gray-700 flex-1">Rotation</Label>
+              <Popover open={rotatePopoverOpen} onOpenChange={setRotatePopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 w-20 border-2 border-gray-300 hover:border-teal-500 hover:bg-teal-50"
+                    title="Adjust rotation"
+                  >
+                    <RotateCw className="w-4 h-4 text-gray-600 mr-1" />
+                    <span className="text-sm text-gray-700">{settings.rotation}°</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-4 bg-white border-2 border-gray-200">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium text-gray-700">
+                        Rotation: {settings.rotation}°
+                      </Label>
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRotate(-15)}
+                          className="h-8 w-8 p-0"
+                          title="Rotate Left"
+                        >
+                          <RotateCw className="w-3 h-3 rotate-180" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRotate(15)}
+                          className="h-8 w-8 p-0"
+                          title="Rotate Right"
+                        >
+                          <RotateCw className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <Slider
+                      value={[settings.rotation]}
+                      onValueChange={([value]) =>
+                        onSettingsChange({ ...settings, rotation: value })
+                      }
+                      min={-180}
+                      max={180}
+                      step={1}
+                      className="w-full"
                     />
                   </div>
-                )}
-              </div>
-            )}
-
-            {/* Rotation Controls */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleRotate(-15)}
-                className="h-10 w-10 p-0"
-                title="Rotate Left"
-              >
-                <RotateCw className="w-4 h-4 rotate-180" />
-              </Button>
-              <div className="text-sm text-gray-600 flex-1 text-center">{settings.rotation}°</div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleRotate(15)}
-                className="h-10 w-10 p-0"
-                title="Rotate Right"
-              >
-                <RotateCw className="w-4 h-4" />
-              </Button>
+                </PopoverContent>
+              </Popover>
             </div>
 
-            {/* Size Controls */}
-            {settings.type === 'image' ? (
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                  Size: {Math.round(settings.imageSize)}%
-                </Label>
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      onSettingsChange({
-                        ...settings,
-                        imageSize: Math.max(5, settings.imageSize - 5),
-                      })
-                    }
-                    className="h-9 w-9 p-0 border-2 border-gray-200 hover:border-teal-300 hover:bg-teal-50"
-                  >
-                    <ZoomOut className="w-4 h-4 text-gray-600" />
-                  </Button>
-                  <Slider
-                    value={[settings.imageSize]}
-                    onValueChange={([value]) => onSettingsChange({ ...settings, imageSize: value })}
-                    min={5}
-                    max={100}
-                    step={5}
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      onSettingsChange({
-                        ...settings,
-                        imageSize: Math.min(100, settings.imageSize + 5),
-                      })
-                    }
-                    className="h-9 w-9 p-0 border-2 border-gray-200 hover:border-teal-300 hover:bg-teal-50"
-                  >
-                    <ZoomIn className="w-4 h-4 text-gray-600" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                  Font Size: {Math.round(settings.fontSize)}%
-                </Label>
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      onSettingsChange({
-                        ...settings,
-                        fontSize: Math.max(5, settings.fontSize - 1),
-                      })
-                    }
-                    className="h-9 w-9 p-0 border-2 border-gray-200 hover:border-teal-300 hover:bg-teal-50"
-                  >
-                    <ZoomOut className="w-4 h-4 text-gray-600" />
-                  </Button>
-                  <Slider
-                    value={[settings.fontSize]}
-                    onValueChange={([value]) => onSettingsChange({ ...settings, fontSize: value })}
-                    min={5}
-                    max={50}
-                    step={1}
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      onSettingsChange({
-                        ...settings,
-                        fontSize: Math.min(50, settings.fontSize + 1),
-                      })
-                    }
-                    className="h-9 w-9 p-0 border-2 border-gray-200 hover:border-teal-300 hover:bg-teal-50"
-                  >
-                    <ZoomIn className="w-4 h-4 text-gray-600" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Opacity */}
-            <div>
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                Opacity: {settings.opacity}%
+            {/* Size Control */}
+            <div className="flex items-center gap-2">
+              <Label className="text-sm font-medium text-gray-700 flex-1">
+                {settings.type === 'image' ? 'Size' : 'Font Size'}
               </Label>
-              <Slider
-                value={[settings.opacity]}
-                onValueChange={([value]) => onSettingsChange({ ...settings, opacity: value })}
-                min={0}
-                max={100}
-                step={5}
-                className="w-full"
-              />
+              <Popover open={sizePopoverOpen} onOpenChange={setSizePopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 w-20 border-2 border-gray-300 hover:border-teal-500 hover:bg-teal-50"
+                    title={`Adjust ${settings.type === 'image' ? 'size' : 'font size'}`}
+                  >
+                    {settings.type === 'image' ? (
+                      <ZoomIn className="w-4 h-4 text-gray-600 mr-1" />
+                    ) : (
+                      <Type className="w-4 h-4 text-gray-600 mr-1" />
+                    )}
+                    <span className="text-sm text-gray-700">
+                      {Math.round(
+                        settings.type === 'image' ? settings.imageSize : settings.fontSize
+                      )}
+                      %
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-4 bg-white border-2 border-gray-200">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium text-gray-700">
+                        {settings.type === 'image' ? 'Size' : 'Font Size'}:{' '}
+                        {Math.round(
+                          settings.type === 'image' ? settings.imageSize : settings.fontSize
+                        )}
+                        %
+                      </Label>
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (settings.type === 'image') {
+                              onSettingsChange({
+                                ...settings,
+                                imageSize: Math.max(5, settings.imageSize - 5),
+                              })
+                            } else {
+                              onSettingsChange({
+                                ...settings,
+                                fontSize: Math.max(5, settings.fontSize - 1),
+                              })
+                            }
+                          }}
+                          className="h-8 w-8 p-0"
+                          title="Decrease"
+                        >
+                          <ZoomOut className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (settings.type === 'image') {
+                              onSettingsChange({
+                                ...settings,
+                                imageSize: Math.min(100, settings.imageSize + 5),
+                              })
+                            } else {
+                              onSettingsChange({
+                                ...settings,
+                                fontSize: Math.min(50, settings.fontSize + 1),
+                              })
+                            }
+                          }}
+                          className="h-8 w-8 p-0"
+                          title="Increase"
+                        >
+                          <ZoomIn className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <Slider
+                      value={[settings.type === 'image' ? settings.imageSize : settings.fontSize]}
+                      onValueChange={([value]) => {
+                        if (settings.type === 'image') {
+                          onSettingsChange({ ...settings, imageSize: value })
+                        } else {
+                          onSettingsChange({ ...settings, fontSize: value })
+                        }
+                      }}
+                      min={settings.type === 'image' ? 5 : 5}
+                      max={settings.type === 'image' ? 100 : 50}
+                      step={settings.type === 'image' ? 5 : 1}
+                      className="w-full"
+                    />
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Opacity Control */}
+            <div className="flex items-center gap-2">
+              <Label className="text-sm font-medium text-gray-700 flex-1">Opacity</Label>
+              <Popover open={opacityPopoverOpen} onOpenChange={setOpacityPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 w-20 border-2 border-gray-300 hover:border-teal-500 hover:bg-teal-50"
+                    title="Adjust opacity"
+                  >
+                    <Eye className="w-4 h-4 text-gray-600 mr-1" />
+                    <span className="text-sm text-gray-700">{settings.opacity}%</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-4 bg-white border-2 border-gray-200">
+                  <div className="space-y-4">
+                    <Label className="text-sm font-medium text-gray-700">
+                      Opacity: {settings.opacity}%
+                    </Label>
+                    <Slider
+                      value={[settings.opacity]}
+                      onValueChange={([value]) => onSettingsChange({ ...settings, opacity: value })}
+                      min={0}
+                      max={100}
+                      step={5}
+                      className="w-full"
+                    />
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Instructions */}

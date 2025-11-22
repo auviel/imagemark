@@ -7,7 +7,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -67,30 +67,32 @@ export function ConvertSettings({
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-sm font-medium text-gray-700 mb-2 block">Current Format</label>
-        <Badge variant="secondary" className="bg-gray-100 text-gray-700 text-sm px-3 py-1.5">
-          {displayFormat.toUpperCase()}
-        </Badge>
-      </div>
-
-      <div>
-        <label className="text-sm font-medium text-gray-700 mb-2 block">Convert To</label>
-        <Select value={targetFormat} onValueChange={setTargetFormat}>
-          <SelectTrigger className="w-full bg-white border-2 border-gray-200 hover:border-teal-300 focus:border-teal-500">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-white border-2 border-gray-200">
-            {SUPPORTED_FORMATS.map((format) => (
-              <SelectItem
-                key={format.value}
-                value={format.value}
-                className="hover:bg-teal-50 focus:bg-teal-50 cursor-pointer"
-              >
-                {format.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <label className="text-sm font-medium text-gray-700 mb-2 block">Convert Format</label>
+        <div className="flex items-center gap-3">
+          <Badge
+            variant="secondary"
+            className="bg-gray-100 text-gray-700 text-sm px-3 py-1.5 flex-shrink-0"
+          >
+            {displayFormat.toUpperCase()}
+          </Badge>
+          <ArrowRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <Select value={targetFormat} onValueChange={setTargetFormat}>
+            <SelectTrigger className="flex-1 bg-white border-2 border-gray-200 hover:border-teal-300 focus:border-teal-500">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-white border-2 border-gray-200">
+              {SUPPORTED_FORMATS.map((format) => (
+                <SelectItem
+                  key={format.value}
+                  value={format.value}
+                  className="hover:bg-teal-50 focus:bg-teal-50 cursor-pointer"
+                >
+                  {format.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div>

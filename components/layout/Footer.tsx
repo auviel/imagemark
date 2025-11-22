@@ -7,7 +7,7 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ className = '' }) => {
   const currentYear = new Date().getFullYear()
-  const version = '1.2.1' // You can update this or get it from package.json
+  const version = '1.2.2' // You can update this or get it from package.json
 
   return (
     <footer className={`bg-gray-50 border-t border-gray-200 py-8 px-4 ${className}`}>

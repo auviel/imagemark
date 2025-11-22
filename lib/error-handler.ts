@@ -178,11 +178,7 @@ export function createAppError(
  * Logs an error (to be replaced with proper error tracking service)
  */
 export function logError(error: Error | AppError, context?: Record<string, unknown>): void {
-  // In production, this should send to error tracking service (e.g., Sentry)
-  // TODO: Integrate with Sentry or other error tracking service
-  // if (typeof window !== 'undefined' && window.Sentry) {
-  //   window.Sentry.captureException(error, { extra: context })
-  // }
+  // Error logging will be implemented with error tracking service
 }
 
 /**
