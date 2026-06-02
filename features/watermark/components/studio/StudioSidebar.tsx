@@ -1,6 +1,7 @@
 'use client'
 
 import type React from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -257,6 +258,13 @@ function isLightHex(hex: string): boolean {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.55
 }
 
+function clampStepped(n: number, min: number, max: number, step: number): number {
+  const clamped = Math.min(max, Math.max(min, n))
+  if (step <= 0) return clamped
+  const steps = Math.round((clamped - min) / step)
+  return Math.min(max, Math.max(min, min + steps * step))
+}
+
 function SliderField({
   label,
   value,
@@ -276,14 +284,68 @@ function SliderField({
   onChange: (v: number) => void
   compact?: boolean
 }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(String(value))
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!editing) setDraft(String(value))
+  }, [value, editing])
+
+  useEffect(() => {
+    if (editing) inputRef.current?.select()
+  }, [editing])
+
+  const commit = () => {
+    const parsed = Number.parseFloat(draft.replace(/,/g, '.'))
+    if (!Number.isNaN(parsed)) {
+      onChange(clampStepped(parsed, min, max, step))
+    }
+    setEditing(false)
+  }
+
   return (
     <div className={cn(compact ? 'space-y-0.5' : 'space-y-1.5')}>
-      <div className="flex items-center justify-between text-[10px]">
+      <div className="flex items-center justify-between gap-2 text-[10px]">
         <span className="font-medium text-gray-500">{label}</span>
-        <span className="tabular-nums text-gray-400">
-          {value}
-          {suffix}
-        </span>
+        {editing ? (
+          <div className="flex items-center shrink-0">
+            <input
+              ref={inputRef}
+              type="text"
+              inputMode="decimal"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  commit()
+                }
+                if (e.key === 'Escape') {
+                  setDraft(String(value))
+                  setEditing(false)
+                }
+              }}
+              aria-label={`${label} value`}
+              className="h-5 w-11 rounded border border-teal-400 bg-white px-1 text-right tabular-nums text-[10px] text-gray-900 outline-none ring-1 ring-teal-500/30"
+            />
+            {suffix ? <span className="ml-0.5 tabular-nums text-gray-400">{suffix}</span> : null}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(String(value))
+              setEditing(true)
+            }}
+            title={`Click to edit ${label}`}
+            className="shrink-0 rounded px-1 tabular-nums text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          >
+            {value}
+            {suffix}
+          </button>
+        )}
       </div>
       <Slider
         value={[value]}
