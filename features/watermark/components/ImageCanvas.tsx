@@ -8,6 +8,7 @@ interface ImageCanvasProps {
   onClick: () => void
   className?: string
   title?: string
+  maxDisplayWidth?: number
 }
 
 export const ImageCanvas: React.FC<ImageCanvasProps> = React.memo(
@@ -16,6 +17,7 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = React.memo(
     onClick,
     className = 'w-full h-auto rounded-lg shadow-sm max-h-48 sm:max-h-64 object-contain cursor-pointer hover:opacity-90 transition-opacity',
     title = 'Click to view fullscreen',
+    maxDisplayWidth = 300,
   }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -38,7 +40,7 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = React.memo(
       ctx.drawImage(canvas, 0, 0)
 
       // Set display size for responsive behavior
-      const maxWidth = 300 // Adjust based on your grid
+      const maxWidth = maxDisplayWidth
       const aspectRatio = canvas.height / canvas.width
 
       if (canvas.width > maxWidth) {
@@ -48,7 +50,7 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = React.memo(
         canvasElement.style.width = `${canvas.width}px`
         canvasElement.style.height = `${canvas.height}px`
       }
-    }, [canvas])
+    }, [canvas, maxDisplayWidth])
 
     return <canvas ref={canvasRef} onClick={onClick} className={className} title={title} />
   }

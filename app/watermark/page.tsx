@@ -2,7 +2,7 @@
 
 import type React from 'react'
 import { useState, useRef, useCallback, useMemo, Suspense, lazy, useEffect } from 'react'
-import { Shield, Zap, Download, Image as ImageIcon } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import type { WatermarkSettings, ImageItem, PositionPreset } from '@/features/watermark'
 import {
   DEFAULT_SETTINGS,
@@ -13,79 +13,105 @@ import {
   downloadBlob,
   canvasToBlob,
 } from '@/features/watermark'
+import type { StylePreset } from '@/features/watermark/constants/style-presets'
 import {
-  UploadArea,
-  ImageGrid,
-  SettingsPanel,
-  FullscreenImageModal,
-} from '@/features/watermark/components/editor'
+  StudioHeader,
+  StudioSidebar,
+  PreviewPane,
+  FileStrip,
+  EmptyStudio,
+  MobileControlsSheet,
+} from '@/features/watermark/components/studio'
+import { FullscreenImageModal } from '@/features/watermark/components/editor'
 import { useDebounce } from '@/hooks/useDebounce'
-import { UnifiedToolbar, FeaturePageLayout } from '@/components/layout'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { LoadingSpinner } from '@/components/common'
+import { Button } from '@/components/ui/button'
+import { Footer } from '@/components/layout'
+import { FAQ } from '@/components/common'
 import { WATERMARK_FAQ_DATA } from '@/data/faq/watermark'
 
 const ImageSettingsModal = lazy(() => import('@/features/watermark/components/ImageSettingsModal'))
 
 export default function WatermarkingTool() {
+  const isMobile = useIsMobile()
   const [mounted, setMounted] = useState(false)
   const [images, setImages] = useState<ImageItem[]>([])
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
+  const [previewShowWatermark, setPreviewShowWatermark] = useState(true)
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const [watermarkImage, setWatermarkImage] = useState<HTMLImageElement | null>(null)
-  const [showSettings, setShowSettings] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const [settings, setSettings] = useState<WatermarkSettings>(DEFAULT_SETTINGS)
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null)
   const [editingImageId, setEditingImageId] = useState<string | null>(null)
-  const [showPositionPresets, setShowPositionPresets] = useState(false)
-  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { processFiles, isProcessing } = useImageUpload()
   const { analysisCanvasRef, processImage } = useWatermark(settings, watermarkImage)
-
   const debouncedSettings = useDebounce(settings, 300)
+
+  const selectedImage = useMemo(
+    () => images.find((img) => img.id === selectedImageId) ?? images[0] ?? null,
+    [images, selectedImageId]
+  )
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
   useEffect(() => {
+    if (images.length === 0) {
+      setSelectedImageId(null)
+      return
+    }
+    if (!selectedImageId || !images.some((img) => img.id === selectedImageId)) {
+      setSelectedImageId(images[0].id)
+    }
+  }, [images, selectedImageId])
+
+  useEffect(() => {
     if (images.length === 0) return
     setImages((prev) =>
       prev.map((imageItem) => ({
         ...imageItem,
-        canvas: processImage(imageItem),
+        canvas: processImage(imageItem, true),
       }))
     )
   }, [debouncedSettings, watermarkImage, images.length, processImage])
 
-  const closeFullscreen = useCallback(() => {
-    setFullscreenImage(null)
-  }, [])
+  const getPreviewCanvas = useCallback(
+    (item: ImageItem, watermarked: boolean): HTMLCanvasElement | null => {
+      if (!watermarked) return processImage(item, false)
+      return item.canvas ?? processImage(item, true)
+    },
+    [processImage]
+  )
+
+  const closeFullscreen = useCallback(() => setFullscreenImage(null), [])
 
   useEffect(() => {
     if (!mounted) return
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         if (fullscreenImage) closeFullscreen()
         else if (editingImageId) setEditingImageId(null)
+        else if (mobileSheetOpen) setMobileSheetOpen(false)
       }
     }
-
-    if (fullscreenImage || editingImageId) {
+    if (fullscreenImage || editingImageId || mobileSheetOpen) {
       document.addEventListener('keydown', handleKeyDown)
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
     }
-
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = 'unset'
     }
-  }, [mounted, fullscreenImage, editingImageId, closeFullscreen])
+  }, [mounted, fullscreenImage, editingImageId, mobileSheetOpen, closeFullscreen])
 
   const handleFileUpload = useCallback(
     async (files: FileList | File[]) => {
@@ -98,6 +124,8 @@ export default function WatermarkingTool() {
       const newImages = await processFiles(imageFiles)
       if (newImages.length > 0) {
         setImages((prev) => [...prev, ...newImages])
+        setSelectedImageId(newImages[0].id)
+        setPreviewShowWatermark(true)
       }
     },
     [processFiles]
@@ -107,6 +135,7 @@ export default function WatermarkingTool() {
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const files = event.target.files
       if (files) handleFileUpload(Array.from(files))
+      event.target.value = ''
     },
     [handleFileUpload]
   )
@@ -131,45 +160,40 @@ export default function WatermarkingTool() {
     setImages((prev) => prev.filter((img) => img.id !== id))
   }, [])
 
-  const toggleSettings = useCallback(() => {
-    setShowSettings((prev) => !prev)
-  }, [])
-
-  const downloadSingleImage = useCallback(async (imageItem: ImageItem) => {
-    if (!imageItem.canvas) return
-    try {
-      const blob = await canvasToBlob(imageItem.canvas)
-      const filename = `watermarked-${imageItem.file.name.split('.')[0]}.png`
-      await downloadBlob(blob, filename)
-    } catch {
-      /* download failed */
-    }
-  }, [])
+  const downloadSingleImage = useCallback(
+    async (imageItem: ImageItem) => {
+      const canvas = imageItem.canvas ?? processImage(imageItem, true)
+      try {
+        const blob = await canvasToBlob(canvas)
+        await downloadBlob(blob, `watermarked-${imageItem.file.name.split('.')[0]}.png`)
+      } catch {
+        /* failed */
+      }
+    },
+    [processImage]
+  )
 
   const downloadAllAsZip = useCallback(async () => {
     if (images.length === 0) return
-
     setIsDownloading(true)
     try {
       const { default: JSZip } = await import('jszip')
       const zip = new JSZip()
-
       await Promise.all(
         images.map(async (imageItem) => {
-          if (!imageItem.canvas) return
-          const blob = await canvasToBlob(imageItem.canvas)
+          const canvas = imageItem.canvas ?? processImage(imageItem, true)
+          const blob = await canvasToBlob(canvas)
           zip.file(`watermarked-${imageItem.file.name.split('.')[0]}.png`, blob)
         })
       )
-
       const zipBlob = await zip.generateAsync({ type: 'blob' })
       await downloadBlob(zipBlob, `imagemark-watermarked-${Date.now()}.zip`)
     } catch {
-      /* zip failed */
+      /* failed */
     } finally {
       setIsDownloading(false)
     }
-  }, [images])
+  }, [images, processImage])
 
   const resetSettings = useCallback(() => {
     setSettings(DEFAULT_SETTINGS)
@@ -202,18 +226,27 @@ export default function WatermarkingTool() {
     }))
   }, [])
 
+  const handleApplyStylePreset = useCallback((preset: StylePreset) => {
+    setSettings((prev) => ({
+      ...prev,
+      ...preset.settings,
+      text: preset.settings.text ?? prev.text,
+    }))
+  }, [])
+
   const handleWatermarkImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
+    if (file)
       createImageFromFile(file)
         .then(setWatermarkImage)
         .catch(() => {})
-    }
   }, [])
 
-  const openFullscreen = useCallback((canvas: HTMLCanvasElement) => {
-    setFullscreenImage(canvas.toDataURL('image/png'))
-  }, [])
+  const openFullscreen = useCallback(() => {
+    if (!selectedImage) return
+    const canvas = getPreviewCanvas(selectedImage, previewShowWatermark)
+    if (canvas) setFullscreenImage(canvas.toDataURL('image/png'))
+  }, [selectedImage, previewShowWatermark, getPreviewCanvas])
 
   const handleImageSettingsSave = useCallback(
     (imageId: string, newSettings: WatermarkSettings) => {
@@ -225,7 +258,7 @@ export default function WatermarkingTool() {
             ...img,
             customSettings: isGlobalSettings ? undefined : newSettings,
           }
-          updatedItem.canvas = processImage(updatedItem)
+          updatedItem.canvas = processImage(updatedItem, true)
           return updatedItem
         })
       )
@@ -238,19 +271,14 @@ export default function WatermarkingTool() {
     [editingImageId, images]
   )
 
-  const togglePositionPresets = useCallback(() => {
-    setShowPositionPresets((prev) => {
-      if (!prev) setShowAdvancedSettings(false)
-      return !prev
-    })
-  }, [])
-
-  const toggleAdvancedSettings = useCallback(() => {
-    setShowAdvancedSettings((prev) => {
-      if (!prev) setShowPositionPresets(false)
-      return !prev
-    })
-  }, [])
+  const sidebarProps = {
+    settings,
+    onUpdateSetting: updateSetting,
+    onPositionPresetSelect: handlePositionPresetSelect,
+    onWatermarkImageUpload: handleWatermarkImageUpload,
+    onApplyStylePreset: handleApplyStylePreset,
+    onResetSettings: resetSettings,
+  }
 
   if (!mounted) {
     return (
@@ -260,56 +288,24 @@ export default function WatermarkingTool() {
     )
   }
 
-  if (images.length > 0) {
+  if (images.length === 0) {
     return (
-      <div className="min-h-screen bg-white">
-        <UnifiedToolbar
-          onUpload={() => fileInputRef.current?.click()}
-          onDownload={downloadAllAsZip}
-          onSettings={toggleSettings}
-          onAddMore={() => fileInputRef.current?.click()}
-          fileCount={images.length}
-          isProcessing={isDownloading || isProcessing}
+      <>
+        <EmptyStudio
+          dragActive={dragActive}
+          isProcessing={isProcessing}
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+          onChooseFiles={() => fileInputRef.current?.click()}
         />
-
-        <div className="max-w-7xl mx-auto p-3 sm:p-4 lg:p-6">
-          {showSettings && (
-            <SettingsPanel
-              settings={settings}
-              showPositionPresets={showPositionPresets}
-              showAdvancedSettings={showAdvancedSettings}
-              onUpdateSetting={updateSetting}
-              onPositionPresetSelect={handlePositionPresetSelect}
-              onWatermarkImageUpload={handleWatermarkImageUpload}
-              onTogglePositionPresets={togglePositionPresets}
-              onToggleAdvancedSettings={toggleAdvancedSettings}
-              onResetSettings={resetSettings}
-            />
-          )}
-
-          <ImageGrid
-            images={images}
-            onRemove={removeImage}
-            onEdit={setEditingImageId}
-            onDownload={downloadSingleImage}
-            onFullscreen={openFullscreen}
-          />
-
-          {editingImage && (
-            <Suspense fallback={<LoadingSpinner size="lg" />}>
-              <ImageSettingsModal
-                imageItem={editingImage}
-                globalSettings={settings}
-                watermarkImage={watermarkImage}
-                onClose={() => setEditingImageId(null)}
-                onSave={(newSettings) => handleImageSettingsSave(editingImage.id, newSettings)}
-              />
-            </Suspense>
-          )}
-
-          <FullscreenImageModal imageUrl={fullscreenImage} onClose={closeFullscreen} />
-        </div>
-
+        <section className="border-t border-gray-100 py-12 bg-gray-50/50">
+          <div className="max-w-2xl mx-auto px-4">
+            <FAQ items={WATERMARK_FAQ_DATA} maxItems={4} />
+          </div>
+        </section>
+        <Footer />
         <input
           ref={fileInputRef}
           type="file"
@@ -318,41 +314,105 @@ export default function WatermarkingTool() {
           onChange={handleInputChange}
           className="hidden"
         />
-
-        <canvas ref={analysisCanvasRef} style={{ display: 'none' }} />
-      </div>
+        <canvas ref={analysisCanvasRef} className="hidden" />
+      </>
     )
   }
 
   return (
-    <FeaturePageLayout
-      icon={ImageIcon}
-      title="Watermark your images"
-      description="Add text or a logo watermark. Everything runs in your browser — your files never leave your device."
-      iconColor="teal"
-      features={[
-        { icon: Zap, title: 'Fast', description: 'Watermark many images at once' },
-        { icon: Shield, title: '100% Private', description: 'Files never leave your browser' },
-        { icon: Download, title: 'Always Free', description: 'No limits, no subscriptions' },
-      ]}
-      faqItems={WATERMARK_FAQ_DATA}
-      faqShowAll={false}
-      faqMaxItems={4}
-    >
-      <div className="max-w-4xl mx-auto">
-        <UploadArea
-          dragActive={dragActive}
-          isProcessing={isProcessing}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-          onFileSelect={handleInputChange}
-          fileInputRef={fileInputRef}
-        />
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col bg-gray-50">
+      <StudioHeader
+        fileCount={images.length}
+        isProcessing={isDownloading || isProcessing}
+        onAddFiles={() => fileInputRef.current?.click()}
+        onDownloadAll={downloadAllAsZip}
+        onOpenControls={() => setMobileSheetOpen(true)}
+        showMobileControls={isMobile}
+      />
+
+      <div className="flex flex-1 min-h-0">
+        {!isMobile && (
+          <StudioSidebar
+            {...sidebarProps}
+            className="hidden lg:flex w-[300px] xl:w-[320px] shrink-0"
+          />
+        )}
+
+        <div className="flex flex-1 flex-col min-w-0 min-h-0">
+          <div className="flex flex-1 flex-col p-4 sm:p-6 min-h-0">
+            <div className="flex items-center justify-end gap-2 mb-2 lg:hidden">
+              {selectedImage && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditingImageId(selectedImage.id)}
+                >
+                  <Pencil className="h-4 w-4 mr-1" />
+                  This image only
+                </Button>
+              )}
+            </div>
+            <PreviewPane
+              image={selectedImage}
+              showWatermark={previewShowWatermark}
+              onToggleWatermark={() => setPreviewShowWatermark((v) => !v)}
+              onFullscreen={openFullscreen}
+              getPreviewCanvas={getPreviewCanvas}
+            />
+            {selectedImage && !isMobile && (
+              <div className="mt-2 flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-600"
+                  onClick={() => setEditingImageId(selectedImage.id)}
+                >
+                  <Pencil className="h-4 w-4 mr-1" />
+                  Customize watermark for this image only
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <FileStrip
+            images={images}
+            selectedId={selectedImage?.id ?? null}
+            onSelect={setSelectedImageId}
+            onRemove={removeImage}
+            onDownload={downloadSingleImage}
+          />
+        </div>
       </div>
 
-      <canvas ref={analysisCanvasRef} style={{ display: 'none' }} />
-    </FeaturePageLayout>
+      <MobileControlsSheet
+        open={mobileSheetOpen}
+        onOpenChange={setMobileSheetOpen}
+        {...sidebarProps}
+      />
+
+      {editingImage && (
+        <Suspense fallback={<LoadingSpinner size="lg" />}>
+          <ImageSettingsModal
+            imageItem={editingImage}
+            globalSettings={settings}
+            watermarkImage={watermarkImage}
+            onClose={() => setEditingImageId(null)}
+            onSave={(newSettings) => handleImageSettingsSave(editingImage.id, newSettings)}
+          />
+        </Suspense>
+      )}
+
+      <FullscreenImageModal imageUrl={fullscreenImage} onClose={closeFullscreen} />
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={ACCEPTED_FILE_TYPES.join(',')}
+        multiple
+        onChange={handleInputChange}
+        className="hidden"
+      />
+      <canvas ref={analysisCanvasRef} className="hidden" />
+    </div>
   )
 }

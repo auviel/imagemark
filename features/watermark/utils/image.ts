@@ -22,18 +22,15 @@ export const createImageFromFile = (file: File): Promise<HTMLImageElement> => {
     const { url: imageUrl, cleanup: cleanupUrl } = createObjectURLSafe(file)
     img.src = imageUrl
 
-    const cleanup = () => {
-      cleanupUrl()
-      cleanupImage(img)
-    }
-
     img.onload = () => {
-      cleanup()
+      // Revoke blob URL only — keep decoded pixels on the element for canvas use
+      cleanupUrl()
       resolve(img)
     }
 
     img.onerror = () => {
-      cleanup()
+      cleanupUrl()
+      cleanupImage(img)
       const { error } = handleError(
         new Error(`Failed to load image: ${file.name}`),
         ErrorCodes.IMAGE_LOAD_ERROR
@@ -71,6 +68,18 @@ export const analyzeImageBrightness = (
 
   const averageBrightness = (totalBrightness / pixelCount) * 100
   return averageBrightness < 50 ? 'light' : 'dark'
+}
+
+/** Draw source image only (no watermark) — for before/after preview */
+export const drawImageOnCanvas = (image: HTMLImageElement, canvas: HTMLCanvasElement): void => {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  canvas.width = image.width
+  canvas.height = image.height
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  ctx.drawImage(image, 0, 0)
 }
 
 export const drawWatermarkOnCanvas = (

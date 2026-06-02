@@ -4,6 +4,7 @@
 export {
   createImageFromFile,
   analyzeImageBrightness,
+  drawImageOnCanvas,
   drawWatermarkOnCanvas,
   downloadBlob,
   canvasToBlob,
