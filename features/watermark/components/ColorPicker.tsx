@@ -1,128 +1,106 @@
 'use client'
 
 import type React from 'react'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
 
 interface ColorPickerProps {
   color: string
   onChange: (color: string) => void
+  compact?: boolean
 }
 
-export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
-  const colorInputRef = useRef<HTMLInputElement>(null)
-  const [hexInput, setHexInput] = useState(color)
+function normalizeHex(color: string): string {
+  const trimmed = color.trim()
+  if (/^#[0-9A-F]{6}$/i.test(trimmed)) return trimmed.toLowerCase()
+  if (/^[0-9A-F]{6}$/i.test(trimmed)) return `#${trimmed.toLowerCase()}`
+  return '#ffffff'
+}
 
-  const handleColorClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+function hexToInputValue(hex: string): string {
+  return normalizeHex(hex).replace('#', '').toUpperCase()
+}
 
-    // Force trigger the native color picker
-    if (colorInputRef.current) {
-      colorInputRef.current.click()
-      // For mobile devices, also try to focus
-      colorInputRef.current.focus()
-    }
-  }
+export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange, compact }) => {
+  const normalized = normalizeHex(color)
+  const [hexInput, setHexInput] = useState(hexToInputValue(color))
 
-  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newColor = e.target.value
-    onChange(newColor)
-    setHexInput(newColor)
+  useEffect(() => {
+    setHexInput(hexToInputValue(color))
+  }, [color])
+
+  const handleNativeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = normalizeHex(e.target.value)
+    onChange(next)
+    setHexInput(hexToInputValue(next))
   }
 
   const handleHexInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setHexInput(value)
-
-    if (/^#[0-9A-F]{6}$/i.test(value)) {
-      onChange(value)
+    const raw = e.target.value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6)
+    setHexInput(raw.toUpperCase())
+    if (raw.length === 6) {
+      onChange(normalizeHex(raw))
     }
   }
 
-  const isValidHex = /^#[0-9A-F]{6}$/i.test(hexInput)
-
-  useEffect(() => {
-    setHexInput(color)
-  }, [color])
+  const isValidHex = hexInput.length === 6
 
   return (
-    <div className="space-y-3">
-      <Label className="text-sm font-medium text-gray-700">Custom Color</Label>
-      <div className="flex items-center gap-3">
-        {/* Color Swatch Button - Make it more touch-friendly */}
-        <button
-          type="button"
-          onClick={handleColorClick}
-          className="group relative w-16 h-12 rounded-lg border-2 border-gray-200 hover:border-gray-300 transition-all duration-200 shadow-sm hover:shadow-md overflow-hidden touch-manipulation"
-          title="Click to open color picker"
-          style={{ minHeight: '48px' }} // Ensure minimum touch target size
+    <div className={cn(compact ? 'space-y-1.5' : 'space-y-3')}>
+      {!compact && <p className="text-sm font-medium text-gray-700">Custom color</p>}
+      <div className="flex items-center gap-2">
+        {/* Native picker overlays swatch — reliable click target */}
+        <label
+          className={cn(
+            'relative shrink-0 cursor-pointer overflow-hidden rounded-md border border-gray-300 shadow-sm',
+            compact ? 'h-8 w-10' : 'h-10 w-12'
+          )}
+          title="Pick a color"
         >
-          <div
-            className="w-full h-full transition-transform duration-200 group-hover:scale-105"
-            style={{ backgroundColor: color }}
+          <input
+            type="color"
+            value={normalized}
+            onChange={handleNativeChange}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            aria-label="Open color picker"
           />
-          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-5 transition-all duration-200" />
+          <span
+            className="block h-full w-full"
+            style={{ backgroundColor: normalized }}
+            aria-hidden
+          />
+        </label>
 
-          {/* Always visible icon for better mobile UX */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-6 h-6 bg-white bg-opacity-80 rounded-full flex items-center justify-center shadow-sm">
-              <svg
-                className="w-4 h-4 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM7 3V1m0 20v-2m8-10h2m-2 4h2m-2 4h2m-2-8h2"
-                />
-              </svg>
-            </div>
-          </div>
-        </button>
-
-        {/* Hex Input */}
-        <div className="flex-1">
-          <div className="relative">
-            <Input
-              value={hexInput}
-              onChange={handleHexInputChange}
-              placeholder="#FFFFFF"
-              className={`font-mono text-sm pl-8 transition-all duration-200 ${
-                isValidHex
-                  ? 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
-                  : 'border-red-300 focus:border-red-500 focus:ring-red-500'
-              }`}
-            />
-            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm font-mono">
-              #
-            </div>
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-              {hexInput && (
-                <div
-                  className={`w-2 h-2 rounded-full ${isValidHex ? 'bg-green-500' : 'bg-red-500'}`}
-                  title={isValidHex ? 'Valid color' : 'Invalid color format'}
-                />
-              )}
-            </div>
-          </div>
-          <p className="text-xs text-gray-500 mt-1">Enter a 6-digit hex color code</p>
+        <div className="relative min-w-0 flex-1">
+          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 font-mono text-xs text-gray-400">
+            #
+          </span>
+          <span
+            className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 rounded border border-gray-200 shadow-inner"
+            style={{ backgroundColor: isValidHex ? normalized : '#e5e7eb' }}
+            title="Preview"
+            aria-hidden
+          />
+          <Input
+            value={hexInput}
+            onChange={handleHexInputChange}
+            placeholder="FFFFFF"
+            maxLength={6}
+            className={cn(
+              'font-mono pr-9 pl-6',
+              compact ? 'h-8 text-xs' : 'h-9 text-sm',
+              isValidHex
+                ? 'border-gray-300 focus-visible:ring-teal-500'
+                : 'border-amber-300 focus-visible:ring-amber-500'
+            )}
+            spellCheck={false}
+          />
         </div>
-
-        {/* Native color input - positioned to be accessible but hidden */}
-        <input
-          ref={colorInputRef}
-          type="color"
-          value={color}
-          onChange={handleColorChange}
-          className="absolute opacity-0 pointer-events-none w-0 h-0"
-          tabIndex={-1}
-        />
       </div>
+      {!compact && (
+        <p className="text-xs text-gray-500">Click the swatch or type a 6-digit hex code</p>
+      )}
     </div>
   )
 }

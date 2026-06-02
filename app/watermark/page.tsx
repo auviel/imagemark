@@ -2,7 +2,6 @@
 
 import type React from 'react'
 import { useState, useRef, useCallback, useMemo, Suspense, lazy, useEffect } from 'react'
-import { Pencil } from 'lucide-react'
 import type { WatermarkSettings, ImageItem, PositionPreset } from '@/features/watermark'
 import {
   DEFAULT_SETTINGS,
@@ -26,7 +25,6 @@ import { FullscreenImageModal } from '@/features/watermark/components/editor'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { LoadingSpinner } from '@/components/common'
-import { Button } from '@/components/ui/button'
 import { Footer } from '@/components/layout'
 import { FAQ } from '@/components/common'
 import { WATERMARK_FAQ_DATA } from '@/data/faq/watermark'
@@ -320,7 +318,7 @@ export default function WatermarkingTool() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] flex-col bg-gray-50">
+    <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden bg-gray-100">
       <StudioHeader
         fileCount={images.length}
         isProcessing={isDownloading || isProcessing}
@@ -330,51 +328,31 @@ export default function WatermarkingTool() {
         showMobileControls={isMobile}
       />
 
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {!isMobile && (
           <StudioSidebar
             {...sidebarProps}
-            className="hidden lg:flex w-[300px] xl:w-[320px] shrink-0"
+            compact
+            className="hidden lg:flex w-[220px] xl:w-[236px]"
           />
         )}
 
-        <div className="flex flex-1 flex-col min-w-0 min-h-0">
-          <div className="flex flex-1 flex-col p-4 sm:p-6 min-h-0">
-            <div className="flex items-center justify-end gap-2 mb-2 lg:hidden">
-              {selectedImage && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditingImageId(selectedImage.id)}
-                >
-                  <Pencil className="h-4 w-4 mr-1" />
-                  This image only
-                </Button>
-              )}
-            </div>
+        <div className="flex flex-1 flex-col min-w-0 min-h-0 gap-2 p-2 lg:p-3 overflow-hidden">
+          <div className="flex flex-1 min-h-0 overflow-hidden">
             <PreviewPane
               image={selectedImage}
               showWatermark={previewShowWatermark}
               onToggleWatermark={() => setPreviewShowWatermark((v) => !v)}
               onFullscreen={openFullscreen}
+              onCustomizeImage={
+                selectedImage ? () => setEditingImageId(selectedImage.id) : undefined
+              }
               getPreviewCanvas={getPreviewCanvas}
             />
-            {selectedImage && !isMobile && (
-              <div className="mt-2 flex justify-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-600"
-                  onClick={() => setEditingImageId(selectedImage.id)}
-                >
-                  <Pencil className="h-4 w-4 mr-1" />
-                  Customize watermark for this image only
-                </Button>
-              </div>
-            )}
           </div>
 
           <FileStrip
+            compact
             images={images}
             selectedId={selectedImage?.id ?? null}
             onSelect={setSelectedImageId}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
-import { Eye, EyeOff, Maximize2 } from 'lucide-react'
+import { Eye, EyeOff, Maximize2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/common'
 import { cn } from '@/lib/utils'
@@ -12,6 +12,7 @@ interface PreviewPaneProps {
   showWatermark: boolean
   onToggleWatermark: () => void
   onFullscreen: () => void
+  onCustomizeImage?: () => void
   getPreviewCanvas: (item: ImageItem, watermarked: boolean) => HTMLCanvasElement | null
 }
 
@@ -20,6 +21,7 @@ export function PreviewPane({
   showWatermark,
   onToggleWatermark,
   onFullscreen,
+  onCustomizeImage,
   getPreviewCanvas,
 }: PreviewPaneProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -49,71 +51,77 @@ export function PreviewPane({
 
   if (!image) {
     return (
-      <div className="flex flex-1 min-h-[280px] items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50/80">
-        <p className="text-sm text-gray-500">Select an image below to preview</p>
+      <div className="flex flex-1 min-h-0 items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50/80">
+        <p className="text-xs text-gray-500">Select an image below</p>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-1 flex-col min-h-0">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate" title={image.file.name}>
-            {image.file.name}
-          </p>
-          <p className="text-xs text-gray-500">
-            {showWatermark ? 'With watermark' : 'Original'}
-            {image.customSettings ? ' · Custom settings' : ''}
-          </p>
+    <div className="relative flex flex-1 min-h-0 min-w-0 rounded-lg border border-gray-200 bg-[#0f1419] overflow-hidden">
+      {!ready ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-gray-400">
+          <LoadingSpinner size="md" />
+          <span className="text-xs">Rendering…</span>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onToggleWatermark}
-            className={cn(!showWatermark && 'border-teal-300 bg-teal-50')}
-          >
-            {showWatermark ? (
-              <>
-                <Eye className="h-4 w-4 mr-1" />
-                Watermarked
-              </>
-            ) : (
-              <>
-                <EyeOff className="h-4 w-4 mr-1" />
-                Original
-              </>
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={onFullscreen}
-            disabled={!ready}
-            title="Fullscreen"
-          >
-            <Maximize2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="relative flex flex-1 items-center justify-center rounded-xl border border-gray-200 bg-[#0f1419] min-h-[240px] sm:min-h-[360px] overflow-hidden">
-        {!ready ? (
-          <div className="flex flex-col items-center gap-2 text-gray-400">
-            <LoadingSpinner size="lg" />
-            <span className="text-sm">Rendering preview…</span>
-          </div>
-        ) : (
+      ) : (
+        <div className="flex flex-1 min-h-0 items-center justify-center">
           <canvas
             ref={(node) => {
               canvasRef.current = node
               if (node) paintPreview()
             }}
-            className="max-w-full max-h-[min(70vh,560px)] w-auto h-auto object-contain"
+            className="max-w-full max-h-full w-auto h-auto object-contain"
           />
+        </div>
+      )}
+
+      {/* Filename — top-left on panel */}
+      <div className="absolute top-2 left-2 max-w-[calc(100%-5rem)] rounded-md bg-black/55 px-2 py-1 backdrop-blur-sm pointer-events-none">
+        <p className="text-[11px] font-medium text-white truncate" title={image.file.name}>
+          {image.file.name}
+        </p>
+        <p className="text-[10px] text-white/70 truncate">
+          {showWatermark ? 'Watermarked' : 'Original'}
+          {image.customSettings ? ' · Custom' : ''}
+        </p>
+      </div>
+
+      {/* Actions — top-right on panel */}
+      <div className="absolute top-2 right-2 flex items-center gap-1 rounded-lg bg-black/55 p-1 backdrop-blur-sm">
+        {onCustomizeImage && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-white hover:bg-white/20 hover:text-white"
+            onClick={onCustomizeImage}
+            title="Customize this image only"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
         )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            'h-7 w-7 text-white hover:bg-white/20 hover:text-white',
+            !showWatermark && 'bg-teal-600/80 hover:bg-teal-600/90'
+          )}
+          onClick={onToggleWatermark}
+          title={showWatermark ? 'Show original' : 'Show watermarked'}
+        >
+          {showWatermark ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-white hover:bg-white/20 hover:text-white disabled:opacity-40"
+          onClick={onFullscreen}
+          disabled={!ready}
+          title="Fullscreen"
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+        </Button>
       </div>
     </div>
   )

@@ -22,8 +22,8 @@ export function StudioHeader({
   showMobileControls,
 }: StudioHeaderProps) {
   return (
-    <header className="sticky top-16 z-30 border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90">
-      <div className="flex h-14 items-center justify-between gap-3 px-4 sm:px-6">
+    <header className="shrink-0 z-30 border-b border-gray-200 bg-white">
+      <div className="flex h-10 items-center justify-between gap-2 px-3 lg:px-4">
         <PrivacyBadge />
 
         <div className="flex items-center gap-2">
