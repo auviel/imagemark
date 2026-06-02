@@ -2,81 +2,95 @@
 
 **Built and managed by [Auviel](https://www.auviel.com)**
 
-We welcome contributions to ImageMark! This document outlines the guidelines for contributing to the project.
+Thank you for contributing to ImageMark. This guide covers how to set up the project locally and submit changes.
 
-## Code of Conduct
+## How to contribute
 
-Please note that this project is released with a [Contributor Code of Conduct](CODE_OF_CONDUCT.md). By participating in this project you agree to abide by its terms.
+- **Report bugs** — Open a [GitHub issue](https://github.com/auviel/imagemark/issues) with steps to reproduce.
+- **Suggest enhancements** — Open an issue to discuss ideas before large changes.
+- **Submit pull requests** — Follow the setup and guidelines below.
+- **Improve documentation** — README, FAQ, and inline docs are all welcome.
 
-## How to Contribute
+## Development setup
 
-Here are several ways you can contribute to ImageMark:
+**Requirements:** Node.js 18+, npm
 
-*   **Report bugs:** If you find a bug, please submit an issue on GitHub. Be sure to include detailed steps to reproduce the bug.
-*   **Suggest enhancements:** Have an idea for a new feature or improvement? Submit an issue on GitHub to discuss it.
-*   **Submit pull requests:** If you'd like to contribute code, please follow the guidelines below.
-*   **Improve documentation:** Help us make the documentation better by submitting pull requests with improvements.
+1. **Fork** the [ImageMark repository](https://github.com/auviel/imagemark) on GitHub.
 
-## Development Setup
+2. **Clone** your fork:
 
-1.  **Fork the repository:** Fork the ImageMark repository to your GitHub account.
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/imagemark.git
+   cd imagemark
+   ```
 
-2.  **Clone the repository:** Clone your forked repository to your local machine:
+3. **Install dependencies:**
 
-    \`\`\`bash
-    git clone https://github.com/codebyvalentine/imagemark.git
-    cd imagemark
-    \`\`\`
+   ```bash
+   npm install
+   ```
 
-3.  **Create a virtual environment (recommended):** It's recommended to create a virtual environment to isolate the project dependencies.
+4. **Start the dev server:**
 
-    \`\`\`bash
-    python3 -m venv venv
-    source venv/bin/activate  # On Linux/macOS
-    venv\Scripts\activate  # On Windows
-    \`\`\`
+   ```bash
+   npm run dev
+   ```
 
-4.  **Install dependencies:** Install the project dependencies using pip:
+   Open [http://localhost:3000/watermark](http://localhost:3000/watermark). No `.env` file is required for watermarking.
 
-    \`\`\`bash
-    pip install -r requirements.txt
-    \`\`\`
+5. **Create a branch** for your changes:
 
-5.  **Make your changes:** Create a new branch for your changes and make your modifications.
+   ```bash
+   git checkout -b your-feature-name
+   ```
 
-6.  **Test your changes:** Ensure that your changes are working correctly by running the tests.
+6. **Verify your changes** before opening a PR:
 
-7.  **Commit your changes:** Commit your changes with a clear and concise commit message.
+   ```bash
+   npm run lint
+   npm run type-check
+   npm run build
+   ```
 
-8.  **Push your changes:** Push your changes to your forked repository.
+7. **Commit and push**, then open a pull request against `main`.
 
-9.  **Submit a pull request:** Submit a pull request to the main ImageMark repository.
+## Where to make changes
 
-## Pull Request Guidelines
+Most watermark functionality lives under `features/watermark/`:
 
-*   **Follow the coding style:** Please adhere to the existing coding style.
-*   **Write tests:** If you're adding new functionality, please include tests to ensure that it works correctly.
-*   **Document your code:** Please document your code clearly and concisely.
-*   **Keep pull requests small:** Smaller pull requests are easier to review and merge.
-*   **Provide a clear description:** Provide a clear and concise description of your changes in the pull request.
+| Path                                    | Purpose                                  |
+| --------------------------------------- | ---------------------------------------- |
+| `app/watermark/`                        | Studio page and layout                   |
+| `features/watermark/components/studio/` | Studio UI (sidebar, preview, file strip) |
+| `features/watermark/hooks/`             | Upload and watermark processing          |
+| `features/watermark/utils/`             | Canvas drawing, export, fonts            |
+| `features/watermark/workers/`           | Background export worker                 |
+| `components/ui/`                        | Shared UI primitives (Radix + Tailwind)  |
 
-## Reporting Bugs
+## Pull request guidelines
 
-When reporting bugs, please include the following information:
+- Match the existing code style (TypeScript, Prettier, ESLint).
+- Keep PRs focused — smaller changes are easier to review.
+- Describe what changed and why in the PR body.
+- Run `npm run lint` and `npm run type-check` before submitting.
+- Avoid unrelated refactors in the same PR.
 
-*   **Operating system:** The operating system you're using.
-*   **Python version:** The version of Python you're using.
-*   **ImageMark version:** The version of ImageMark you're using.
-*   **Steps to reproduce:** Detailed steps to reproduce the bug.
-*   **Expected behavior:** The expected behavior.
-*   **Actual behavior:** The actual behavior.
+## Reporting bugs
 
-## Suggesting Enhancements
+Please include:
 
-When suggesting enhancements, please include the following information:
+- **OS and browser** (e.g. macOS 15, Chrome 131)
+- **Node.js version** (`node -v`)
+- **Steps to reproduce**
+- **Expected vs. actual behavior**
+- **Screenshots or console errors** if relevant
 
-*   **Description:** A clear and concise description of the enhancement.
-*   **Motivation:** The motivation for the enhancement.
-*   **Use cases:** Example use cases for the enhancement.
+## Suggesting enhancements
 
-Thank you for contributing to ImageMark!
+Please include:
+
+- **Description** of the proposed change
+- **Motivation** — what problem it solves
+- **Use cases** — who benefits and how
+
+Thank you for helping improve ImageMark!

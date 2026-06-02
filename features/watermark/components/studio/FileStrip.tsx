@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { X, Download, ImageIcon, Plus } from 'lucide-react'
+import { useLayoutEffect, useRef } from 'react'
+import { X, Download, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ImageItem } from '@/features/watermark'
 
@@ -15,42 +15,41 @@ interface FileStripProps {
   compact?: boolean
 }
 
-/** Thumbnails always load from the File — img.src may be a revoked blob URL after decode */
-function useThumbUrl(file: File, id: string): string {
-  const [url, setUrl] = useState('')
+const THUMB_MAX_EDGE = 128
 
-  useEffect(() => {
-    const objectUrl = URL.createObjectURL(file)
-    setUrl(objectUrl)
-    return () => URL.revokeObjectURL(objectUrl)
-  }, [file, id])
-
-  return url
+function paintBitmapThumb(canvas: HTMLCanvasElement, bitmap: ImageBitmap): boolean {
+  if (!bitmap.width || !bitmap.height) return false
+  const scale = Math.min(THUMB_MAX_EDGE / bitmap.width, THUMB_MAX_EDGE / bitmap.height, 1)
+  const w = Math.max(1, Math.round(bitmap.width * scale))
+  const h = Math.max(1, Math.round(bitmap.height * scale))
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return false
+  ctx.clearRect(0, 0, w, h)
+  ctx.drawImage(bitmap, 0, 0, w, h)
+  return true
 }
 
 function StripThumb({ item }: { item: ImageItem }) {
-  const url = useThumbUrl(item.file, item.id)
-  const [failed, setFailed] = useState(false)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  useEffect(() => {
-    setFailed(false)
-  }, [url])
-
-  if (!url) {
-    return <div className="w-full h-full bg-gray-200 animate-pulse" />
-  }
-
-  if (failed) {
-    return (
-      <div className="flex h-full w-full items-center justify-center bg-gray-100 text-gray-400">
-        <ImageIcon className="h-5 w-5" />
-      </div>
-    )
-  }
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    try {
+      paintBitmapThumb(canvas, item.image)
+    } catch {
+      /* invalid or closed bitmap */
+    }
+  }, [item.image, item.id])
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={url} alt="" className="w-full h-full object-cover" onError={() => setFailed(true)} />
+    <canvas
+      ref={canvasRef}
+      className="block h-full w-full min-h-0 min-w-0 object-cover"
+      aria-hidden
+    />
   )
 }
 

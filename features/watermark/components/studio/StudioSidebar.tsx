@@ -1,7 +1,7 @@
 'use client'
 
 import type React from 'react'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -288,14 +288,6 @@ function SliderField({
   const [draft, setDraft] = useState(String(value))
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    if (!editing) setDraft(String(value))
-  }, [value, editing])
-
-  useEffect(() => {
-    if (editing) inputRef.current?.select()
-  }, [editing])
-
   const commit = () => {
     const parsed = Number.parseFloat(draft.replace(/,/g, '.'))
     if (!Number.isNaN(parsed)) {
@@ -314,7 +306,9 @@ function SliderField({
               ref={inputRef}
               type="text"
               inputMode="decimal"
+              autoFocus
               value={draft}
+              onFocus={(e) => e.target.select()}
               onChange={(e) => setDraft(e.target.value)}
               onBlur={commit}
               onKeyDown={(e) => {
