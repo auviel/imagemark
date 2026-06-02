@@ -50,7 +50,8 @@ export default function FAQPage() {
           </div>
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Find answers to common questions about ImageMark. Can't find what you're looking for?
+            Find answers to common questions about ImageMark. Can&apos;t find what you&apos;re
+            looking for?
             <Link
               href="https://github.com/auviel/imagemark/issues"
               className="text-teal-600 hover:underline ml-1"
@@ -69,7 +70,7 @@ export default function FAQPage() {
         <div className="bg-gray-50 rounded-lg p-8 text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Still need help?</h2>
           <p className="text-gray-600 mb-6">
-            If you can't find the answer you're looking for, we're here to help.
+            If you can&apos;t find the answer you&apos;re looking for, we&apos;re here to help.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="https://github.com/auviel/imagemark/issues">

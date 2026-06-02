@@ -3,4 +3,3 @@
  */
 export { useWatermark } from './useWatermark'
 export { useImageUpload } from './useImageUpload'
-export { useVideoUpload } from './useVideoUpload'

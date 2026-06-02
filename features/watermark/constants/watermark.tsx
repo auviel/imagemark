@@ -2,7 +2,7 @@ import type { WatermarkSettings, PositionPreset, FontOption } from '../types/wat
 
 export const DEFAULT_SETTINGS: WatermarkSettings = {
   type: 'text',
-  text: 'Enter text',
+  text: '',
   font: 'Inter',
   fontSize: 14,
   fontMode: 'light',
@@ -24,13 +24,6 @@ export const ACCEPTED_FILE_TYPES = [
   'image/bmp',
   'image/tiff',
   'image/svg+xml',
-] as const
-
-export const ACCEPTED_VIDEO_TYPES = [
-  'video/mp4',
-  'video/webm',
-  'video/quicktime',
-  'video/x-msvideo',
 ] as const
 
 export const ANALYSIS_SIZE = 100

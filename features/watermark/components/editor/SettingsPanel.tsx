@@ -82,7 +82,7 @@ export function SettingsPanel({
                 <Input
                   value={settings.text}
                   onChange={(e) => onUpdateSetting('text', e.target.value)}
-                  placeholder="Enter your watermark text"
+                  placeholder="e.g. © Your Name"
                   className="text-sm focus:ring-teal-500 focus:border-teal-500"
                 />
               </div>

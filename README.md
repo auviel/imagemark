@@ -1,116 +1,56 @@
 # ImageMark
 
-**Built and managed by [Auviel](https://www.auviel.com)**
+**Built by [Auviel](https://www.auviel.com)** · [Live app](https://imagemark.app) · [GitHub](https://github.com/auviel/imagemark)
 
-ImageMark is a free, modern web application for adding watermarks to images and videos. Protect your content with professional watermarks in seconds.
+Free, open-source **image watermarking** that runs entirely in your browser. Add text or logo watermarks to one file or hundreds — no account, no server uploads, no limits.
+
+## Why ImageMark
+
+- **Private** — Your images are processed on your device, not on our servers
+- **Simple** — Upload, set watermark, download (batch + ZIP supported)
+- **Free** — For everyone, forever; MIT licensed
 
 ## Features
 
-- **Text & Image Watermarks** - Add custom text or upload your logo
-- **Video Support** - Watermark video files with the same ease as images
-- **Batch Processing** - Process multiple files at once
-- **Real-time Preview** - See your watermark before applying
-- **Advanced Positioning** - Precise control over watermark placement
-- **Privacy First** - All processing happens in your browser
-- **Multiple Formats** - Support for JPEG, PNG, GIF, WebP, MP4, WebM, and more
-- **Responsive Design** - Works perfectly on desktop and mobile
+- Text and logo watermarks
+- Nine position presets plus custom placement
+- Opacity, size, rotation, fonts, and colors
+- Batch upload and ZIP download
+- Real-time preview
 
-## Live Demo
+## Quick start
 
-Visit **[imagemark.app](https://imagemark.app)** to try it now!
-
-## Installation
-
-\`\`\`bash
+```bash
 git clone https://github.com/auviel/imagemark.git
 cd imagemark
 npm install
 npm run dev
-\`\`\`
+```
 
-## Environment Setup
+Open [http://localhost:3000/watermark](http://localhost:3000/watermark).
 
-1. **Copy the example environment file:**
-   \`\`\`bash
-   cp .env.example .env.local
-   \`\`\`
+No API keys are required for watermarking. Optional env vars in `.env.example` are only for legacy or self-hosted extras — the core tool does not need them.
 
-2. **Edit `.env.local` and fill in your values:**
-   - For basic development, you can leave most values as defaults
-   - For image optimization features, you'll need a ShortPixel API key
-   - See `.env.example` for all available options and documentation
+## Tech stack
 
-3. **Required for production:**
-   - `SHORTPIXEL_API_KEY` - For image optimization features
-   - `UPSTASH_REDIS_REST_URL` & `UPSTASH_REDIS_REST_TOKEN` - For rate limiting (Phase 3)
-   - `NEXT_PUBLIC_SENTRY_DSN` - For error tracking (Phase 2)
+- Next.js · React · TypeScript
+- Tailwind CSS · Radix UI
+- HTML5 Canvas (all image watermarking)
 
-**Note:** Never commit `.env.local` to version control. It's already in `.gitignore`.
+## Scripts
 
-## Technology Stack
-
-- **Framework**: Next.js 15 with React 19
-- **Styling**: Tailwind CSS with custom components
-- **UI Components**: Radix UI primitives
-- **Language**: TypeScript
-- **Processing**: HTML5 Canvas API for image manipulation
-- **Video**: FFmpeg.wasm for video processing
-
-## Development
-
-\`\`\`bash
-
-# Install dependencies
-
-npm install
-
-# Start development server
-
-npm run dev
-
-# Build for production
-
-npm run build
-
-# Start production server
-
-npm start
-
-# Format code with Prettier
-
-npm run format
-
-# Check code formatting
-
-npm run format:check
-
-# Type check
-
-npm run type-check
-
-# Lint code
-
-npm run lint
-\`\`\`
+```bash
+npm run dev          # development
+npm run build        # production build
+npm run start        # production server
+npm run lint         # ESLint
+npm run type-check   # TypeScript
+```
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
-## Bug Reports & Feature Requests
-
-Please use the [GitHub Issues](https://github.com/auviel/imagemark/issues) page to report bugs or request features.
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports and ideas: [GitHub Issues](https://github.com/auviel/imagemark/issues).
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## About
-
-Built with ❤️ by [Auviel](https://www.auviel.com) for protecting your digital content.
+MIT — see [LICENSE](LICENSE).

@@ -58,28 +58,6 @@ const iconColorClasses = {
   indigo: 'bg-indigo-100 text-indigo-600',
 }
 
-const iconColorHoverClasses = {
-  teal: 'border-teal-400 bg-teal-50',
-  blue: 'border-blue-400 bg-blue-50',
-  purple: 'border-purple-400 bg-purple-50',
-  green: 'border-green-400 bg-green-50',
-  orange: 'border-orange-400 bg-orange-50',
-  red: 'border-red-400 bg-red-50',
-  pink: 'border-pink-400 bg-pink-50',
-  indigo: 'border-indigo-400 bg-indigo-50',
-}
-
-const iconColorButtonClasses = {
-  teal: 'bg-teal-600 hover:bg-teal-700',
-  blue: 'bg-blue-600 hover:bg-blue-700',
-  purple: 'bg-purple-600 hover:bg-purple-700',
-  green: 'bg-green-600 hover:bg-green-700',
-  orange: 'bg-orange-600 hover:bg-orange-700',
-  red: 'bg-red-600 hover:bg-red-700',
-  pink: 'bg-pink-600 hover:bg-pink-700',
-  indigo: 'bg-indigo-600 hover:bg-indigo-700',
-}
-
 export function FeaturePageLayout({
   icon: Icon,
   title,
@@ -93,8 +71,6 @@ export function FeaturePageLayout({
   headerActions,
 }: FeaturePageLayoutProps) {
   const iconClass = iconColorClasses[iconColor]
-  const hoverClass = iconColorHoverClasses[iconColor]
-  const buttonClass = iconColorButtonClasses[iconColor]
 
   return (
     <div className="min-h-screen bg-white">

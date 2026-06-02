@@ -73,7 +73,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 <CardTitle className="text-2xl">Something went wrong</CardTitle>
               </div>
               <CardDescription>
-                An unexpected error occurred. We're sorry for the inconvenience.
+                An unexpected error occurred. We&apos;re sorry for the inconvenience.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -133,7 +133,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
  * Hook to manually trigger error boundary (for testing)
  */
 export function useErrorHandler() {
-  return (error: Error, errorInfo?: React.ErrorInfo) => {
-    throw error
+  return (_error: Error, _errorInfo?: React.ErrorInfo) => {
+    throw _error
   }
 }

@@ -33,7 +33,18 @@ export const Footer: React.FC<FooterProps> = ({ className = '' }) => {
               </a>
               . All rights reserved.
             </p>
-            <p className="text-xs text-gray-500">Version {version}</p>
+            <p className="text-xs text-gray-500">
+              <a
+                href="https://github.com/auviel/imagemark"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-teal-600 hover:underline"
+              >
+                Open source on GitHub
+              </a>
+              {' · '}
+              Version {version}
+            </p>
           </div>
         </div>
       </div>

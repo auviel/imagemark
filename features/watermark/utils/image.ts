@@ -196,7 +196,7 @@ export const downloadBlob = (blob: Blob, filename: string): Promise<void> => {
       setTimeout(() => {
         try {
           document.body.removeChild(link)
-        } catch (error) {
+        } catch {
           // Link might already be removed
         }
         cleanupUrl()
@@ -226,5 +226,7 @@ export const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
 }
 
 export const validateFileTypes = (files: FileList): File[] => {
-  return Array.from(files).filter((file) => ACCEPTED_FILE_TYPES.includes(file.type as any))
+  return Array.from(files).filter((file) =>
+    ACCEPTED_FILE_TYPES.includes(file.type as (typeof ACCEPTED_FILE_TYPES)[number])
+  )
 }

@@ -177,7 +177,7 @@ export function createAppError(
 /**
  * Logs an error (to be replaced with proper error tracking service)
  */
-export function logError(error: Error | AppError, context?: Record<string, unknown>): void {
+export function logError(_error: Error | AppError, _context?: Record<string, unknown>): void {
   // Error logging will be implemented with error tracking service
 }
 

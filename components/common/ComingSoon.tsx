@@ -26,7 +26,7 @@ export function ComingSoon() {
         <CardContent className="space-y-4">
           <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
             <p className="text-sm text-teal-800 text-center">
-              We're working hard to bring you this feature. Check back soon!
+              We&apos;re working hard to bring you this feature. Check back soon!
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">

@@ -9,10 +9,3 @@ export {
   canvasToBlob,
   validateFileTypes,
 } from './image'
-
-export {
-  createVideoItem,
-  processVideo,
-  createVideoFromFile,
-  processVideoWithWatermark,
-} from './video'

@@ -110,8 +110,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://api.shortpixel.com" />
-        <link rel="preconnect" href="https://api.shortpixel.com" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font -- Watermark font picker requires Google Fonts catalog */}
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;600;700&family=Lato:wght@400;700&family=Montserrat:wght@400;600;700&family=Poppins:wght@400;600;700&family=Source+Sans+Pro:wght@400;600;700&family=Playfair+Display:wght@400;700&family=Merriweather:wght@400;700&family=Lora:wght@400;700&family=Crimson+Text:wght@400;700&family=Fira+Code:wght@400;700&family=Source+Code+Pro:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Bebas+Neue&family=Oswald:wght@400;700&family=Anton&family=Bangers&family=Dancing+Script:wght@400;700&family=Pacifico&family=Great+Vibes&display=swap"
           rel="stylesheet"
@@ -127,7 +126,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               '@type': 'WebApplication',
               name: 'ImageMark',
               description:
-                'Free online watermark tool for images and videos. Add professional watermarks to protect your content.',
+                'Free, private watermark tool for images. All processing runs in your browser.',
               url: 'https://imagemark.app',
               applicationCategory: 'MultimediaApplication',
               operatingSystem: 'Web Browser',
@@ -143,12 +142,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               },
               featureList: [
                 'Text watermarking',
-                'Image watermarking',
-                'Video watermarking',
+                'Logo watermarking',
                 'Batch processing',
                 'Real-time preview',
-                'Multiple file formats',
-                'Privacy-first processing',
+                'ZIP download',
+                'Privacy-first local processing',
               ],
             }),
           }}

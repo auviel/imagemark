@@ -1,7 +1,7 @@
 import type { NextConfig } from "next"
+import bundleAnalyzer from '@next/bundle-analyzer'
 
-// Bundle analyzer
-const withBundleAnalyzer = require('@next/bundle-analyzer')({
+const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 })
 
@@ -43,7 +43,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https:",
-      "connect-src 'self' https://api.shortpixel.com https://vercel.live",
+      "connect-src 'self' https://vercel.live",
       "frame-ancestors 'self'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -52,10 +52,6 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
-  // Enable ESLint during builds (only ignore in CI if absolutely necessary)
-  eslint: {
-    ignoreDuringBuilds: false,
-  },
   // Enable TypeScript type checking during builds
   typescript: {
     ignoreBuildErrors: false,
@@ -72,6 +68,26 @@ const nextConfig: NextConfig = {
   },
   // Ensure static files are properly served
   trailingSlash: false,
+  async redirects() {
+    return [
+      { source: '/editor', destination: '/watermark', permanent: true },
+      { source: '/convert', destination: '/watermark', permanent: true },
+      { source: '/convert/:path*', destination: '/watermark', permanent: true },
+      { source: '/remove-background', destination: '/watermark', permanent: true },
+      { source: '/remove-background/:path*', destination: '/watermark', permanent: true },
+      { source: '/optimize', destination: '/watermark', permanent: true },
+      { source: '/optimize/:path*', destination: '/watermark', permanent: true },
+      { source: '/resize', destination: '/watermark', permanent: true },
+      { source: '/resize/:path*', destination: '/watermark', permanent: true },
+      { source: '/bulk', destination: '/watermark', permanent: true },
+      { source: '/archive', destination: '/watermark', permanent: true },
+      { source: '/exif', destination: '/watermark', permanent: true },
+      { source: '/quality', destination: '/watermark', permanent: true },
+      { source: '/adaptive', destination: '/watermark', permanent: true },
+      { source: '/on-the-fly', destination: '/watermark', permanent: true },
+      { source: '/videos', destination: '/watermark', permanent: true },
+    ]
+  },
   // Security headers and static file headers
   async headers() {
     return [

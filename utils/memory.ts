@@ -70,7 +70,7 @@ export class ObjectURLManager {
     this.urls.forEach((url) => {
       try {
         URL.revokeObjectURL(url)
-      } catch (error) {
+      } catch {
         // Ignore errors when revoking (URL might already be revoked)
       }
     })
@@ -101,7 +101,7 @@ export function cleanupCanvas(canvas: HTMLCanvasElement | null): void {
     // Reset canvas dimensions to free memory
     canvas.width = 0
     canvas.height = 0
-  } catch (error) {
+  } catch {
     // Ignore cleanup errors
   }
 }
@@ -121,7 +121,7 @@ export function cleanupVideo(video: HTMLVideoElement | null): void {
     // Remove event listeners by cloning
     const newVideo = video.cloneNode(false) as HTMLVideoElement
     video.parentNode?.replaceChild(newVideo, video)
-  } catch (error) {
+  } catch {
     // Ignore cleanup errors
   }
 }
@@ -137,7 +137,7 @@ export function cleanupImage(img: HTMLImageElement | null): void {
     img.src = ''
     img.onload = null
     img.onerror = null
-  } catch (error) {
+  } catch {
     // Ignore cleanup errors
   }
 }
@@ -149,7 +149,7 @@ export function createObjectURLCleanup(url: string): () => void {
   return () => {
     try {
       URL.revokeObjectURL(url)
-    } catch (error) {
+    } catch {
       // Ignore errors when revoking
     }
   }

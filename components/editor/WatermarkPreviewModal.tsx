@@ -8,7 +8,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { X, RotateCw, ZoomIn, ZoomOut, Upload, Hand, Type, Eye, Palette } from 'lucide-react'
+import { X, RotateCw, ZoomIn, ZoomOut, Upload, Hand, Type, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { Label } from '@/components/ui/label'
@@ -16,8 +16,9 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { WatermarkSettings } from '@/features/watermark/types'
 import { FONT_OPTIONS } from '@/features/watermark/constants'
-import { createImageFromFile } from '@/features/watermark/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
+
+type HTMLImageElementWithBlobUrl = HTMLImageElement & { _blobUrl?: string }
 
 interface WatermarkPreviewModalProps {
   isOpen: boolean
@@ -44,18 +45,23 @@ export function WatermarkPreviewModal({
   const containerRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<HTMLImageElement | null>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const [isRotating, setIsRotating] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [initialPosition, setInitialPosition] = useState({ x: 0, y: 0 })
-  const [initialRotation, setInitialRotation] = useState(0)
   const [initialSize, setInitialSize] = useState(0)
   const [initialDistance, setInitialDistance] = useState(0)
   const [scale, setScale] = useState(1)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const watermarkFileInputRef = useRef<HTMLInputElement>(null)
   const isMobile = useIsMobile()
-  const [showTip, setShowTip] = useState(false)
+  const [tipDismissed, setTipDismissed] = useState(
+    () =>
+      typeof window !== 'undefined' && localStorage.getItem('watermark-tip-dismissed') === 'true'
+  )
+  const hasWatermark =
+    (settings.type === 'text' && settings.text.trim()) ||
+    (settings.type === 'image' && !!watermarkImage)
+  const showTip = isOpen && hasWatermark && !tipDismissed
   const [fontPopoverOpen, setFontPopoverOpen] = useState(false)
   const [rotatePopoverOpen, setRotatePopoverOpen] = useState(false)
   const [sizePopoverOpen, setSizePopoverOpen] = useState(false)
@@ -63,25 +69,8 @@ export function WatermarkPreviewModal({
   const [colorPopoverOpen, setColorPopoverOpen] = useState(false)
   const [isDraggingOver, setIsDraggingOver] = useState(false)
 
-  // Check if user has seen the tip before
-  useEffect(() => {
-    if (isOpen) {
-      const hasSeenTip = localStorage.getItem('watermark-tip-dismissed')
-      // Show tip if:
-      // 1. User hasn't dismissed it before
-      // 2. There's a watermark visible (text or image)
-      const hasWatermark =
-        (settings.type === 'text' && settings.text.trim()) ||
-        (settings.type === 'image' && watermarkImage)
-
-      if (!hasSeenTip && hasWatermark) {
-        setShowTip(true)
-      }
-    }
-  }, [isOpen, settings.type, settings.text, watermarkImage])
-
   const handleDismissTip = () => {
-    setShowTip(false)
+    setTipDismissed(true)
     localStorage.setItem('watermark-tip-dismissed', 'true')
   }
 
@@ -110,10 +99,11 @@ export function WatermarkPreviewModal({
         })
 
         // Store the blob URL on the image so we can clean it up later if needed
-        ;(img as any)._blobUrl = imageUrl
+        const imgWithBlobUrl = img as HTMLImageElementWithBlobUrl
+        imgWithBlobUrl._blobUrl = imageUrl
 
         onWatermarkImageChange(img)
-      } catch (error) {
+      } catch {
         alert('Failed to load watermark image. Please try again.')
       }
     },
@@ -150,8 +140,9 @@ export function WatermarkPreviewModal({
   // Cleanup blob URLs on unmount or when watermark image changes
   useEffect(() => {
     return () => {
-      if (watermarkImage && (watermarkImage as any)._blobUrl) {
-        URL.revokeObjectURL((watermarkImage as any)._blobUrl)
+      const imageWithBlobUrl = watermarkImage as HTMLImageElementWithBlobUrl | null
+      if (imageWithBlobUrl?._blobUrl) {
+        URL.revokeObjectURL(imageWithBlobUrl._blobUrl)
       }
     }
   }, [watermarkImage])
@@ -187,41 +178,40 @@ export function WatermarkPreviewModal({
     img.src = imageUrl
   }, [isOpen, imageUrl])
 
-  const drawWatermarkOverlay = (
-    ctx: CanvasRenderingContext2D,
-    canvas: HTMLCanvasElement,
-    img: HTMLImageElement
-  ) => {
-    ctx.save()
-    ctx.globalAlpha = settings.opacity / 100
+  const drawWatermarkOverlay = useCallback(
+    (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, img: HTMLImageElement) => {
+      ctx.save()
+      ctx.globalAlpha = settings.opacity / 100
 
-    const fontSize = (settings.fontSize / 100) * img.width * scale
-    const selectedFont = FONT_OPTIONS.find((f) => f.name === settings.font)
-    const fontFamily = selectedFont?.family ?? 'Inter, sans-serif'
-    ctx.font = `bold ${fontSize}px ${fontFamily}`
+      const fontSize = (settings.fontSize / 100) * img.width * scale
+      const selectedFont = FONT_OPTIONS.find((f) => f.name === settings.font)
+      const fontFamily = selectedFont?.family ?? 'Inter, sans-serif'
+      ctx.font = `bold ${fontSize}px ${fontFamily}`
 
-    switch (settings.fontMode) {
-      case 'light':
-        ctx.fillStyle = '#D1D5DB'
-        break
-      case 'dark':
-        ctx.fillStyle = '#374151'
-        break
-      default:
-        ctx.fillStyle = settings.customColor
-    }
+      switch (settings.fontMode) {
+        case 'light':
+          ctx.fillStyle = '#D1D5DB'
+          break
+        case 'dark':
+          ctx.fillStyle = '#374151'
+          break
+        default:
+          ctx.fillStyle = settings.customColor
+      }
 
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
 
-    const x = (settings.positionX / 100) * canvas.width
-    const y = (settings.positionY / 100) * canvas.height
+      const x = (settings.positionX / 100) * canvas.width
+      const y = (settings.positionY / 100) * canvas.height
 
-    ctx.translate(x, y)
-    ctx.rotate((settings.rotation * Math.PI) / 180)
-    ctx.fillText(settings.text, 0, 0)
-    ctx.restore()
-  }
+      ctx.translate(x, y)
+      ctx.rotate((settings.rotation * Math.PI) / 180)
+      ctx.fillText(settings.text, 0, 0)
+      ctx.restore()
+    },
+    [settings, scale]
+  )
 
   const drawWatermarkImageOverlay = useCallback(
     (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, img: HTMLImageElement) => {
@@ -283,7 +273,7 @@ export function WatermarkPreviewModal({
     } else if (settings.type === 'image' && watermarkImage) {
       drawWatermarkImageOverlay(ctx, canvas, img)
     }
-  }, [settings, watermarkImage, containerSize, scale, drawWatermarkImageOverlay])
+  }, [settings, watermarkImage, containerSize, drawWatermarkImageOverlay, drawWatermarkOverlay])
 
   useEffect(() => {
     if (isOpen && imageRef.current) {
@@ -734,6 +724,7 @@ export function WatermarkPreviewModal({
                   {watermarkImage ? (
                     <div className="flex flex-col items-center gap-3">
                       <div className="relative w-full">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- Watermark overlay preview */}
                         <img
                           src={watermarkImage.src}
                           alt="Watermark preview"
@@ -744,8 +735,9 @@ export function WatermarkPreviewModal({
                           onClick={(e) => {
                             e.stopPropagation()
                             // Clean up blob URL if it exists
-                            if ((watermarkImage as any)._blobUrl) {
-                              URL.revokeObjectURL((watermarkImage as any)._blobUrl)
+                            const imageWithBlobUrl = watermarkImage as HTMLImageElementWithBlobUrl
+                            if (imageWithBlobUrl._blobUrl) {
+                              URL.revokeObjectURL(imageWithBlobUrl._blobUrl)
                             }
                             if (onWatermarkImageChange) {
                               onWatermarkImageChange(null)

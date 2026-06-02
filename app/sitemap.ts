@@ -2,19 +2,19 @@ import { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = 'https://imagemark.app'
-  
+
   return [
     {
-      url: baseUrl,
+      url: `${baseUrl}/watermark`,
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 1,
     },
     {
-      url: `${baseUrl}/videos`,
+      url: `${baseUrl}/faq`,
       lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.8,
+      changeFrequency: 'monthly',
+      priority: 0.7,
     },
   ]
 }

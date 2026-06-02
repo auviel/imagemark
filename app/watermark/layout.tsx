@@ -1,25 +1,23 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Free Watermark Tool - Add Watermarks to Images & Videos | ImageMark',
+  title: 'Watermark Images — Free & Private | ImageMark',
   description:
-    'Add professional watermarks to your images and videos for free. Batch processing, text & logo watermarks, instant download. Protect your content with ImageMark.',
+    'Add text or logo watermarks to images in your browser. Batch processing, ZIP download, no account. Your files never leave your device.',
   keywords: [
     'watermark tool',
     'image watermark',
-    'video watermark',
     'free watermark',
     'batch watermark',
     'logo watermark',
     'text watermark',
     'protect images',
-    'watermark generator',
-    'online watermark',
+    'private watermark',
+    'browser watermark',
   ],
   openGraph: {
-    title: 'Free Watermark Tool - Add Watermarks to Images & Videos | ImageMark',
-    description:
-      'Add professional watermarks to your images and videos for free. Batch processing, text & logo watermarks, instant download.',
+    title: 'Watermark Images — Free & Private | ImageMark',
+    description: 'Add text or logo watermarks in your browser. Free, private, no account required.',
     url: 'https://imagemark.app/watermark',
     siteName: 'ImageMark',
     images: [
@@ -27,7 +25,7 @@ export const metadata: Metadata = {
         url: '/android-chrome-512x512.png',
         width: 512,
         height: 512,
-        alt: 'ImageMark - Free Watermark Tool',
+        alt: 'ImageMark watermark tool',
       },
     ],
     locale: 'en_US',
@@ -35,9 +33,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Free Watermark Tool - Add Watermarks to Images & Videos',
-    description:
-      'Add professional watermarks to your images and videos for free. Batch processing, text & logo watermarks.',
+    title: 'Watermark Images — Free & Private | ImageMark',
+    description: 'Free in-browser image watermarking. Your files stay on your device.',
     images: ['/android-chrome-512x512.png'],
   },
   alternates: {

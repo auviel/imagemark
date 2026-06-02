@@ -54,7 +54,8 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
           IconRight: ({ ...props }: React.ComponentProps<'svg'>) => (
             <ChevronRight className="h-4 w-4" {...props} />
           ),
-        } as any
+          // react-day-picker v9 types omit legacy icon component names
+        } as React.ComponentProps<typeof DayPicker>['components']
       }
       {...props}
     />

@@ -24,7 +24,7 @@ interface ImageSettingsModalProps {
 const ImageSettingsModal: React.FC<ImageSettingsModalProps> = ({
   imageItem,
   globalSettings,
-  watermarkImage,
+  watermarkImage: _watermarkImage,
   onClose,
   onSave,
 }) => {
@@ -149,7 +149,7 @@ const ImageSettingsModal: React.FC<ImageSettingsModalProps> = ({
                     <Input
                       value={localSettings.text}
                       onChange={(e) => updateLocalSetting('text', e.target.value)}
-                      placeholder="Enter your watermark text"
+                      placeholder="e.g. © Your Name"
                       className="text-sm focus:ring-teal-500 focus:border-teal-500"
                     />
                   </div>

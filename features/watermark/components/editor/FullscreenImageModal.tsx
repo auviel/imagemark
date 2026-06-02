@@ -30,6 +30,7 @@ export function FullscreenImageModal({ imageUrl, onClose }: FullscreenImageModal
         </button>
         <div className="relative w-full h-full max-w-[90vw] max-h-[90vh]">
           {isBlobOrDataUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- Fullscreen preview uses blob/data URLs
             <img
               src={imageUrl}
               alt="Fullscreen preview"
