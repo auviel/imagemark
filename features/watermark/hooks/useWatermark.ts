@@ -3,7 +3,6 @@
 import { useCallback, useMemo } from 'react'
 import type { WatermarkSettings, ImageItem } from '../types'
 import { drawImageOnCanvas, drawWatermarkOnCanvas } from '../utils'
-import { ensureFontsLoaded } from '../utils/font-loader'
 import { getPreviewDimensions } from '../utils/canvas-scale'
 
 export type ProcessQuality = 'preview' | 'full'

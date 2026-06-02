@@ -55,6 +55,8 @@ export default function WatermarkingTool() {
   const [editingImageId, setEditingImageId] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const imagesRef = useRef<ImageItem[]>([])
+  imagesRef.current = images
 
   const { processFiles, isProcessing } = useImageUpload()
   const { processImage } = useWatermark(settings, watermarkImage)
@@ -81,29 +83,28 @@ export default function WatermarkingTool() {
 
   /** Preview: selected image only (debounced). Caches watermarked + original canvases. */
   useEffect(() => {
-    if (images.length === 0 || !selectedImageId) return
+    if (!selectedImageId) return
     let cancelled = false
 
     void (async () => {
-      let selected: ImageItem | undefined
-      setImages((prev) => {
-        selected = prev.find((item) => item.id === selectedImageId)
-        return prev
-      })
-      if (!selected) return
+      const selected = imagesRef.current.find((item) => item.id === selectedImageId)
+      if (!selected || selected.image.width === 0) return
 
-      const [canvas, previewOriginalCanvas] = await Promise.all([
-        processImage(selected, true, 'preview'),
-        processImage(selected, false, 'preview'),
-      ])
-      if (cancelled) return
-      setImages((prev) =>
-        prev.map((imageItem) =>
-          imageItem.id === selectedImageId
-            ? { ...imageItem, canvas, previewOriginalCanvas }
-            : imageItem
+      try {
+        const previewOriginalCanvas = await processImage(selected, false, 'preview')
+        if (cancelled) return
+        const canvas = await processImage({ ...selected, previewOriginalCanvas }, true, 'preview')
+        if (cancelled) return
+        setImages((prev) =>
+          prev.map((imageItem) =>
+            imageItem.id === selectedImageId
+              ? { ...imageItem, canvas, previewOriginalCanvas }
+              : imageItem
+          )
         )
-      )
+      } catch {
+        /* preview failed — avoid infinite spinner */
+      }
     })()
 
     return () => {
@@ -378,7 +379,6 @@ export default function WatermarkingTool() {
         isProcessing={isDownloading || isProcessing}
         exportFormat={exportFormat}
         onExportFormatChange={setExportFormat}
-        onAddFiles={() => fileInputRef.current?.click()}
         onDownload={handleDownload}
         onOpenControls={() => setMobileSheetOpen(true)}
         showMobileControls={isMobile}

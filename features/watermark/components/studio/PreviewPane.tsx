@@ -43,11 +43,12 @@ export function PreviewPane({
 
   useEffect(() => {
     paintPreview()
-  }, [paintPreview, image?.canvas, image?.id])
+  }, [paintPreview, image?.canvas, image?.previewOriginalCanvas, image?.id, showWatermark])
 
   const imageLoaded = Boolean(image?.image?.width)
-  const canvasReady = Boolean(image?.canvas?.width)
-  const ready = imageLoaded && (showWatermark ? canvasReady : true)
+  const watermarkedReady = Boolean(image?.canvas?.width)
+  const originalReady = Boolean(image?.previewOriginalCanvas?.width || image?.canvas?.width)
+  const ready = imageLoaded && (showWatermark ? watermarkedReady : originalReady)
 
   if (!image) {
     return (

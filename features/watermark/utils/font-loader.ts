@@ -3,6 +3,15 @@ import { getFontFamily } from '../constants/fonts'
 
 type FontFaceContainer = { fonts?: FontFaceSet }
 
+const FONT_LOAD_TIMEOUT_MS = 2000
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | undefined> {
+  return Promise.race([
+    promise,
+    new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), ms)),
+  ])
+}
+
 /** Preload watermark font on the main thread before canvas text draw. */
 export async function ensureFontsLoaded(settings: WatermarkSettings): Promise<void> {
   if (settings.type !== 'text' || !settings.text.trim()) return
@@ -11,8 +20,7 @@ export async function ensureFontsLoaded(settings: WatermarkSettings): Promise<vo
   const family = getFontFamily(settings.font)
   const sampleSize = Math.max(12, Math.round((settings.fontSize / 100) * 48))
   try {
-    await document.fonts.load(`bold ${sampleSize}px ${family}`)
-    await document.fonts.ready
+    await withTimeout(document.fonts.load(`bold ${sampleSize}px ${family}`), FONT_LOAD_TIMEOUT_MS)
   } catch {
     /* fall back to system font */
   }
@@ -27,8 +35,7 @@ export async function ensureFontsLoadedInWorker(settings: WatermarkSettings): Pr
   const family = getFontFamily(settings.font)
   const sampleSize = Math.max(12, Math.round((settings.fontSize / 100) * 48))
   try {
-    await fonts.load(`bold ${sampleSize}px ${family}`)
-    await fonts.ready
+    await withTimeout(fonts.load(`bold ${sampleSize}px ${family}`), FONT_LOAD_TIMEOUT_MS)
   } catch {
     /* system fallback */
   }

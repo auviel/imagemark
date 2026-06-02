@@ -17,25 +17,22 @@ interface ExportFormatSelectProps {
 
 export function ExportFormatSelect({ value, onChange, className }: ExportFormatSelectProps) {
   return (
-    <div
-      className={cn('inline-flex rounded-md border border-gray-200 bg-gray-50 p-0.5', className)}
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as ExportFormatPreference)}
       title="Export format (Auto uses JPEG for photos, PNG when transparency matters)"
+      aria-label="Export format"
+      className={cn(
+        'h-8 rounded-md border border-gray-300 bg-white px-2 pr-7 text-xs text-gray-900',
+        'focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500',
+        className
+      )}
     >
       {OPTIONS.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          onClick={() => onChange(opt.value)}
-          className={cn(
-            'rounded px-2 py-1 text-[10px] font-medium transition-colors',
-            value === opt.value
-              ? 'bg-white text-teal-800 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          )}
-        >
+        <option key={opt.value} value={opt.value}>
           {opt.label}
-        </button>
+        </option>
       ))}
-    </div>
+    </select>
   )
 }
