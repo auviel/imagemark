@@ -8,9 +8,12 @@ import {
   ACCEPTED_FILE_TYPES,
   useWatermark,
   useImageUpload,
-  createImageFromFile,
+  createWatermarkFromFile,
   downloadBlob,
-  canvasToBlob,
+  exportWatermarkedBlob,
+  closeImageBitmap,
+  resolveExportFormat,
+  type ExportFormatPreference,
 } from '@/features/watermark'
 import type { StylePreset } from '@/features/watermark/constants/style-presets'
 import {
@@ -21,7 +24,12 @@ import {
   EmptyStudio,
   MobileControlsSheet,
 } from '@/features/watermark/components/studio'
-import { FullscreenImageModal } from '@/features/watermark/components/editor'
+
+const FullscreenImageModal = lazy(() =>
+  import('@/features/watermark/components/editor/FullscreenImageModal').then((m) => ({
+    default: m.FullscreenImageModal,
+  }))
+)
 import { useDebounce } from '@/hooks/useDebounce'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { LoadingSpinner } from '@/components/common'
@@ -38,17 +46,18 @@ export default function WatermarkingTool() {
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
   const [previewShowWatermark, setPreviewShowWatermark] = useState(true)
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
-  const [watermarkImage, setWatermarkImage] = useState<HTMLImageElement | null>(null)
+  const [watermarkImage, setWatermarkImage] = useState<ImageBitmap | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const [settings, setSettings] = useState<WatermarkSettings>(DEFAULT_SETTINGS)
+  const [exportFormat, setExportFormat] = useState<ExportFormatPreference>('auto')
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null)
   const [editingImageId, setEditingImageId] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { processFiles, isProcessing } = useImageUpload()
-  const { analysisCanvasRef, processImage } = useWatermark(settings, watermarkImage)
+  const { processImage } = useWatermark(settings, watermarkImage)
   const debouncedSettings = useDebounce(settings, 300)
 
   const selectedImage = useMemo(
@@ -70,22 +79,44 @@ export default function WatermarkingTool() {
     }
   }, [images, selectedImageId])
 
+  /** Preview: selected image only (debounced). Caches watermarked + original canvases. */
   useEffect(() => {
-    if (images.length === 0) return
-    setImages((prev) =>
-      prev.map((imageItem) => ({
-        ...imageItem,
-        canvas: processImage(imageItem, true),
-      }))
-    )
-  }, [debouncedSettings, watermarkImage, images.length, processImage])
+    if (images.length === 0 || !selectedImageId) return
+    let cancelled = false
+
+    void (async () => {
+      let selected: ImageItem | undefined
+      setImages((prev) => {
+        selected = prev.find((item) => item.id === selectedImageId)
+        return prev
+      })
+      if (!selected) return
+
+      const [canvas, previewOriginalCanvas] = await Promise.all([
+        processImage(selected, true, 'preview'),
+        processImage(selected, false, 'preview'),
+      ])
+      if (cancelled) return
+      setImages((prev) =>
+        prev.map((imageItem) =>
+          imageItem.id === selectedImageId
+            ? { ...imageItem, canvas, previewOriginalCanvas }
+            : imageItem
+        )
+      )
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [debouncedSettings, watermarkImage, selectedImageId, processImage])
 
   const getPreviewCanvas = useCallback(
     (item: ImageItem, watermarked: boolean): HTMLCanvasElement | null => {
-      if (!watermarked) return processImage(item, false)
-      return item.canvas ?? processImage(item, true)
+      if (!watermarked) return item.previewOriginalCanvas ?? null
+      return item.canvas ?? null
     },
-    [processImage]
+    []
   )
 
   const closeFullscreen = useCallback(() => setFullscreenImage(null), [])
@@ -155,35 +186,44 @@ export default function WatermarkingTool() {
   )
 
   const removeImage = useCallback((id: string) => {
-    setImages((prev) => prev.filter((img) => img.id !== id))
+    setImages((prev) => {
+      const removed = prev.find((img) => img.id === id)
+      closeImageBitmap(removed?.image)
+      return prev.filter((img) => img.id !== id)
+    })
   }, [])
 
   const downloadSingleImage = useCallback(
     async (imageItem: ImageItem) => {
-      const canvas = imageItem.canvas ?? processImage(imageItem, true)
       try {
-        const blob = await canvasToBlob(canvas)
-        await downloadBlob(blob, `watermarked-${imageItem.file.name.split('.')[0]}.png`)
+        const format = resolveExportFormat(imageItem.file.type, exportFormat)
+        const base = imageItem.file.name.replace(/\.[^.]+$/, '')
+        const blob = await exportWatermarkedBlob(imageItem, settings, watermarkImage, format)
+        await downloadBlob(blob, `watermarked-${base}.${format.extension}`)
       } catch {
         /* failed */
       }
     },
-    [processImage]
+    [settings, watermarkImage, exportFormat]
   )
 
-  const downloadAllAsZip = useCallback(async () => {
+  const handleDownload = useCallback(async () => {
     if (images.length === 0) return
     setIsDownloading(true)
     try {
+      if (images.length === 1) {
+        await downloadSingleImage(images[0])
+        return
+      }
+
       const { default: JSZip } = await import('jszip')
       const zip = new JSZip()
-      await Promise.all(
-        images.map(async (imageItem) => {
-          const canvas = imageItem.canvas ?? processImage(imageItem, true)
-          const blob = await canvasToBlob(canvas)
-          zip.file(`watermarked-${imageItem.file.name.split('.')[0]}.png`, blob)
-        })
-      )
+      for (const imageItem of images) {
+        const format = resolveExportFormat(imageItem.file.type, exportFormat)
+        const base = imageItem.file.name.replace(/\.[^.]+$/, '')
+        const blob = await exportWatermarkedBlob(imageItem, settings, watermarkImage, format)
+        zip.file(`watermarked-${base}.${format.extension}`, blob)
+      }
       const zipBlob = await zip.generateAsync({ type: 'blob' })
       await downloadBlob(zipBlob, `imagemark-watermarked-${Date.now()}.zip`)
     } catch {
@@ -191,11 +231,14 @@ export default function WatermarkingTool() {
     } finally {
       setIsDownloading(false)
     }
-  }, [images, processImage])
+  }, [images, settings, watermarkImage, exportFormat, downloadSingleImage])
 
   const resetSettings = useCallback(() => {
     setSettings(DEFAULT_SETTINGS)
-    setWatermarkImage(null)
+    setWatermarkImage((prev) => {
+      closeImageBitmap(prev)
+      return null
+    })
   }, [])
 
   const updateSetting = useCallback(
@@ -234,10 +277,16 @@ export default function WatermarkingTool() {
 
   const handleWatermarkImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file)
-      createImageFromFile(file)
-        .then(setWatermarkImage)
-        .catch(() => {})
+    if (!file) return
+    createWatermarkFromFile(file)
+      .then((bitmap) => {
+        setWatermarkImage((prev) => {
+          closeImageBitmap(prev)
+          return bitmap
+        })
+      })
+      .catch(() => {})
+    e.target.value = ''
   }, [])
 
   const openFullscreen = useCallback(() => {
@@ -248,20 +297,26 @@ export default function WatermarkingTool() {
 
   const handleImageSettingsSave = useCallback(
     (imageId: string, newSettings: WatermarkSettings) => {
-      setImages((prev) =>
-        prev.map((img) => {
-          if (img.id !== imageId) return img
-          const isGlobalSettings = JSON.stringify(newSettings) === JSON.stringify(settings)
-          const updatedItem = {
-            ...img,
-            customSettings: isGlobalSettings ? undefined : newSettings,
-          }
-          updatedItem.canvas = processImage(updatedItem, true)
-          return updatedItem
-        })
-      )
+      void (async () => {
+        const target = images.find((img) => img.id === imageId)
+        if (!target) return
+        const isGlobalSettings = JSON.stringify(newSettings) === JSON.stringify(settings)
+        const updatedItem: ImageItem = {
+          ...target,
+          customSettings: isGlobalSettings ? undefined : newSettings,
+        }
+        const [canvas, previewOriginalCanvas] = await Promise.all([
+          processImage(updatedItem, true, 'preview'),
+          processImage(updatedItem, false, 'preview'),
+        ])
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === imageId ? { ...updatedItem, canvas, previewOriginalCanvas } : img
+          )
+        )
+      })()
     },
-    [settings, processImage]
+    [images, settings, processImage]
   )
 
   const editingImage = useMemo(
@@ -298,8 +353,8 @@ export default function WatermarkingTool() {
           onDrop={handleDrop}
           onChooseFiles={() => fileInputRef.current?.click()}
         />
-        <section className="border-t border-gray-100 py-12 bg-gray-50/50">
-          <div className="max-w-2xl mx-auto px-4">
+        <section className="border-t border-gray-100 bg-gray-50/50 py-12">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:max-w-5xl lg:px-8">
             <FAQ items={WATERMARK_FAQ_DATA} maxItems={4} />
           </div>
         </section>
@@ -312,7 +367,6 @@ export default function WatermarkingTool() {
           onChange={handleInputChange}
           className="hidden"
         />
-        <canvas ref={analysisCanvasRef} className="hidden" />
       </>
     )
   }
@@ -322,8 +376,10 @@ export default function WatermarkingTool() {
       <StudioHeader
         fileCount={images.length}
         isProcessing={isDownloading || isProcessing}
+        exportFormat={exportFormat}
+        onExportFormatChange={setExportFormat}
         onAddFiles={() => fileInputRef.current?.click()}
-        onDownloadAll={downloadAllAsZip}
+        onDownload={handleDownload}
         onOpenControls={() => setMobileSheetOpen(true)}
         showMobileControls={isMobile}
       />
@@ -358,6 +414,7 @@ export default function WatermarkingTool() {
             onSelect={setSelectedImageId}
             onRemove={removeImage}
             onDownload={downloadSingleImage}
+            onAddFiles={() => fileInputRef.current?.click()}
           />
         </div>
       </div>
@@ -380,7 +437,11 @@ export default function WatermarkingTool() {
         </Suspense>
       )}
 
-      <FullscreenImageModal imageUrl={fullscreenImage} onClose={closeFullscreen} />
+      {fullscreenImage && (
+        <Suspense fallback={null}>
+          <FullscreenImageModal imageUrl={fullscreenImage} onClose={closeFullscreen} />
+        </Suspense>
+      )}
 
       <input
         ref={fileInputRef}
@@ -390,7 +451,6 @@ export default function WatermarkingTool() {
         onChange={handleInputChange}
         className="hidden"
       />
-      <canvas ref={analysisCanvasRef} className="hidden" />
     </div>
   )
 }

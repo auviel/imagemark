@@ -27,18 +27,18 @@ export function EmptyStudio({
 }: EmptyStudioProps) {
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col">
-      <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 sm:py-16">
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <PrivacyBadge />
-        <h1 className="mt-6 text-3xl sm:text-4xl font-bold text-gray-900 text-center tracking-tight">
+        <h1 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl">
           Watermark your images
         </h1>
-        <p className="mt-3 max-w-md text-center text-gray-600">
+        <p className="mt-3 max-w-2xl text-center text-base text-gray-600 sm:text-lg">
           Drop photos here, set your mark, download. Free, unlimited, and nothing leaves your
           device.
         </p>
 
         <div
-          className={`mt-10 w-full max-w-xl rounded-2xl border-2 border-dashed p-10 sm:p-14 transition-colors ${
+          className={`mt-10 w-full max-w-4xl rounded-2xl border-2 border-dashed p-10 sm:p-12 lg:p-14 transition-colors ${
             dragActive
               ? 'border-teal-400 bg-teal-50'
               : isProcessing
@@ -72,7 +72,7 @@ export function EmptyStudio({
           )}
         </div>
 
-        <div className="mt-12 grid w-full max-w-lg grid-cols-3 gap-6 text-center">
+        <div className="mt-12 grid w-full max-w-4xl grid-cols-3 gap-6 text-center sm:gap-10 lg:gap-16">
           <div>
             <Shield className="mx-auto h-5 w-5 text-teal-600 mb-2" />
             <p className="text-xs font-medium text-gray-900">Private</p>

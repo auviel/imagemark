@@ -1,30 +1,49 @@
 'use client'
 
-import { useCallback, useRef, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import type { WatermarkSettings, ImageItem } from '../types'
-import { analyzeImageBrightness, drawImageOnCanvas, drawWatermarkOnCanvas } from '../utils'
+import { drawImageOnCanvas, drawWatermarkOnCanvas } from '../utils'
+import { ensureFontsLoaded } from '../utils/font-loader'
+import { getPreviewDimensions } from '../utils/canvas-scale'
+
+export type ProcessQuality = 'preview' | 'full'
 
 export const useWatermark = (
   globalSettings: WatermarkSettings,
-  watermarkImage: HTMLImageElement | null
+  watermarkImage: ImageBitmap | null
 ) => {
-  const analysisCanvasRef = useRef<HTMLCanvasElement>(null)
-
-  const analyzeBrightness = useCallback((image: HTMLImageElement): 'light' | 'dark' => {
-    const canvas = analysisCanvasRef.current
-    if (!canvas) return 'light'
-    return analyzeImageBrightness(image, canvas)
-  }, [])
-
   const processImage = useCallback(
-    (imageItem: ImageItem, withWatermark = true): HTMLCanvasElement => {
-      const canvas = document.createElement('canvas')
+    async (
+      imageItem: ImageItem,
+      withWatermark = true,
+      quality: ProcessQuality = 'full'
+    ): Promise<HTMLCanvasElement> => {
+      const isPreview = quality === 'preview'
+      const outputSize = isPreview
+        ? getPreviewDimensions(imageItem.image.width, imageItem.image.height)
+        : undefined
+      const smoothing = isPreview ? 'medium' : 'high'
+      const reuseCanvas = isPreview
+        ? withWatermark
+          ? imageItem.canvas
+          : imageItem.previewOriginalCanvas
+        : undefined
+      const canvas = reuseCanvas ?? document.createElement('canvas')
+
       if (!withWatermark) {
-        drawImageOnCanvas(imageItem.image, canvas)
+        drawImageOnCanvas(imageItem.image, canvas, outputSize, smoothing)
         return canvas
       }
+
       const settings = imageItem.customSettings || globalSettings
-      drawWatermarkOnCanvas(imageItem.image, canvas, settings, watermarkImage)
+      await drawWatermarkOnCanvas(
+        imageItem.image,
+        canvas,
+        settings,
+        watermarkImage,
+        outputSize,
+        smoothing
+      )
       return canvas
     },
     [globalSettings, watermarkImage]
@@ -38,8 +57,6 @@ export const useWatermark = (
   }, [globalSettings.type, globalSettings.text, watermarkImage])
 
   return {
-    analysisCanvasRef,
-    analyzeBrightness,
     processImage,
     hasWatermark,
   }

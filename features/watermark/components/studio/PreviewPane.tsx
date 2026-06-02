@@ -45,7 +45,7 @@ export function PreviewPane({
     paintPreview()
   }, [paintPreview, image?.canvas, image?.id])
 
-  const imageLoaded = Boolean(image?.image?.naturalWidth)
+  const imageLoaded = Boolean(image?.image?.width)
   const canvasReady = Boolean(image?.canvas?.width)
   const ready = imageLoaded && (showWatermark ? canvasReady : true)
 

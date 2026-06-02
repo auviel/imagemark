@@ -3,12 +3,16 @@
 import { Plus, Download, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PrivacyBadge } from './PrivacyBadge'
+import { ExportFormatSelect } from './ExportFormatSelect'
+import type { ExportFormatPreference } from '@/features/watermark/utils/export-format'
 
 interface StudioHeaderProps {
   fileCount: number
   isProcessing: boolean
+  exportFormat: ExportFormatPreference
+  onExportFormatChange: (format: ExportFormatPreference) => void
   onAddFiles: () => void
-  onDownloadAll: () => void
+  onDownload: () => void
   onOpenControls?: () => void
   showMobileControls?: boolean
 }
@@ -16,8 +20,10 @@ interface StudioHeaderProps {
 export function StudioHeader({
   fileCount,
   isProcessing,
+  exportFormat,
+  onExportFormatChange,
   onAddFiles,
-  onDownloadAll,
+  onDownload,
   onOpenControls,
   showMobileControls,
 }: StudioHeaderProps) {
@@ -27,6 +33,9 @@ export function StudioHeader({
         <PrivacyBadge />
 
         <div className="flex items-center gap-2">
+          {fileCount > 0 && (
+            <ExportFormatSelect value={exportFormat} onChange={onExportFormatChange} />
+          )}
           {showMobileControls && onOpenControls && (
             <Button variant="outline" size="sm" onClick={onOpenControls} className="lg:hidden">
               <SlidersHorizontal className="h-4 w-4 sm:mr-1.5" />
@@ -40,12 +49,12 @@ export function StudioHeader({
           <Button
             size="sm"
             className="bg-teal-600 hover:bg-teal-700 text-white"
-            onClick={onDownloadAll}
+            onClick={onDownload}
             disabled={isProcessing || fileCount === 0}
           >
             <Download className="h-4 w-4 sm:mr-1.5" />
             <span className="hidden sm:inline">
-              {isProcessing ? 'Working…' : `Download${fileCount > 1 ? ' all' : ''}`}
+              {isProcessing ? 'Working…' : fileCount > 1 ? 'Download ZIP' : 'Download'}
             </span>
             <span className="sm:hidden">{isProcessing ? '…' : 'Save'}</span>
           </Button>

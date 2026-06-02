@@ -16,7 +16,7 @@ import { PositionGrid } from './PositionGrid'
 interface ImageSettingsModalProps {
   imageItem: ImageItem
   globalSettings: WatermarkSettings
-  watermarkImage: HTMLImageElement | null
+  watermarkImage: ImageBitmap | null
   onClose: () => void
   onSave: (settings: WatermarkSettings) => void
 }

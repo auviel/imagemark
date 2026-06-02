@@ -16,9 +16,12 @@ export interface WatermarkSettings {
 
 export interface ImageItem {
   id: string
-  image: HTMLImageElement
+  /** Decoded via createImageBitmap — call .close() when removing */
+  image: ImageBitmap
   file: File
   canvas?: HTMLCanvasElement
+  /** Cached downscaled original for preview toggle */
+  previewOriginalCanvas?: HTMLCanvasElement
   customSettings?: WatermarkSettings
 }
 

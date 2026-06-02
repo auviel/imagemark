@@ -1,4 +1,5 @@
 export { PrivacyBadge } from './PrivacyBadge'
+export { ExportFormatSelect } from './ExportFormatSelect'
 export { StudioHeader } from './StudioHeader'
 export { StudioSidebar } from './StudioSidebar'
 export { PreviewPane } from './PreviewPane'
