@@ -21,6 +21,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "analyze": "ANALYZE=true npm run build",
+    "audit": "npm audit --omit=dev --audit-level=high",
+    "prepush": "npm run format:check && npm run lint && npm run type-check && npm run audit && npm run build",
     "prepare": "husky"
   },
   "dependencies": {
