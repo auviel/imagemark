@@ -1,0 +1,33 @@
+name: CI
+
+# Production branch only. No pull_request trigger, no other branches.
+# Local pre-push (`npm run prepush`) already runs Prettier, ESLint, the type
+# check, the dependency audit, and the production build. This workflow does
+# not repeat that list. It only runs what the hook cannot: Semgrep.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "LICENSE"
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Skip when the head commit message includes [skip ci] / [ci skip].
+jobs:
+  semgrep:
+    name: Semgrep
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Scan
+        run: semgrep scan --config p/typescript --config p/nextjs --config p/react --error --metrics=off
